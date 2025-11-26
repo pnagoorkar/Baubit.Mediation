@@ -53,3 +53,6 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 /.vs
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
