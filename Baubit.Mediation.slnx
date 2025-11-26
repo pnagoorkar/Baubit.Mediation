@@ -1,3 +1,10 @@
 <Solution>
+  <Folder Name="/SolutionItems/">
+    <File Path=".circleci/config.yml" />
+    <File Path=".github/copilot-instructions.md" />
+    <File Path="codecov.yml" />
+  </Folder>
+  <Project Path="Baubit.Mediation.Benchmark/Baubit.Mediation.Benchmark.csproj" Id="b435db65-6de3-4bb3-9398-67ed34481199" />
+  <Project Path="Baubit.Mediation.Test/Baubit.Mediation.Test.csproj" Id="80ead00f-9974-466d-9eba-383ed04a4575" />
   <Project Path="Baubit.Mediation/Baubit.Mediation.csproj" />
 </Solution>

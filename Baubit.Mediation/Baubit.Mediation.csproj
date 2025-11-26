@@ -1,9 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <AssemblyVersion>$(AssemblyVersion)</AssemblyVersion>
@@ -24,6 +22,10 @@
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="." />
     <None Include="../LICENSE" Pack="true" PackagePath="." />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Baubit.Caching" Version="2025.48.6" />
   </ItemGroup>
 
 </Project>

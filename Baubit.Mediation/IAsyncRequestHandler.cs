@@ -1,4 +1,6 @@
-﻿namespace Baubit.Mediation
+﻿using System.Threading.Tasks;
+
+namespace Baubit.Mediation
 {
     /// <summary>
     /// Defines an asynchronous request handler for a specific request/response pair.

@@ -1,10 +1,12 @@
-﻿namespace Baubit.Mediation
+﻿using System;
+
+namespace Baubit.Mediation
 {
     public interface ISubscriber<T> : IDisposable
     {
-        public bool OnNext(T next);
-        public bool OnError(Exception error);
-        public bool OnCompleted();
+        bool OnNext(T next);
+        bool OnError(Exception error);
+        bool OnCompleted();
     }
 
     public static class SubscriberExtensions

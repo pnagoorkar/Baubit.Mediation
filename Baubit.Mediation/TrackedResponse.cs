@@ -1,9 +1,11 @@
-﻿namespace Baubit.Mediation
+﻿using System;
+
+namespace Baubit.Mediation
 {
     public class TrackedResponse<TResponse> where TResponse : IResponse
     {
-        public Guid ForRequest { get; init; }
-        public TResponse Response { get; init; }
+        public Guid ForRequest { get; private set; }
+        public TResponse Response { get; private set; }
         public TrackedResponse(Guid forRequest, TResponse response)
         {
             ForRequest = forRequest;
