@@ -15,8 +15,8 @@
     <SignAssembly>$(SignAssembly)</SignAssembly>
     <AssemblyOriginatorKeyFile>$(KeyFilePath)</AssemblyOriginatorKeyFile>
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
-    <Description>TBD</Description>
-    <PackageTags>TBD</PackageTags>
+    <Description>Lightweight mediator pattern implementation with cache-backed async request/response routing.</Description>
+    <PackageTags>mediator;cqrs;request;response;handler;messaging;async;cache;baubit</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

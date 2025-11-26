@@ -10,6 +10,11 @@ using System.Threading.Tasks;
 
 namespace Baubit.Mediation
 {
+    /// <summary>
+    /// Default implementation of <see cref="IMediator"/> that routes requests to handlers
+    /// and notifications to subscribers using an ordered cache for message persistence.
+    /// Thread-safe for concurrent use.
+    /// </summary>
     public class Mediator : IMediator
     {
         private bool disposedValue;
@@ -19,6 +24,11 @@ namespace Baubit.Mediation
         private ILogger<Mediator> _logger;
         private GuidV7Generator _idGenerator;
 
+        /// <summary>
+        /// Creates a new <see cref="Mediator"/> instance.
+        /// </summary>
+        /// <param name="cache">The ordered cache for storing notifications and tracked requests.</param>
+        /// <param name="loggerFactory">Factory to create loggers for diagnostics.</param>
         public Mediator(IOrderedCache<object> cache,
                    ILoggerFactory loggerFactory)
         {
@@ -27,11 +37,13 @@ namespace Baubit.Mediation
             _idGenerator = GuidV7Generator.CreateNew();
         }
 
+        /// <inheritdoc/>
         public bool Publish(object notification)
         {
             return _cache.Add(notification, out _);
         }
 
+        /// <inheritdoc/>
         public TResponse Publish<TRequest, TResponse>(TRequest request)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
@@ -41,6 +53,7 @@ namespace Baubit.Mediation
             return ((IRequestHandler<TRequest, TResponse>)handler).Handle(request);
         }
 
+        /// <inheritdoc/>
         public async Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
@@ -50,6 +63,7 @@ namespace Baubit.Mediation
             return await ((IRequestHandler<TRequest, TResponse>)handler).HandleSyncAsync(request);
         }
 
+        /// <inheritdoc/>
         public async Task<TResponse> PublishAsyncAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
@@ -77,6 +91,7 @@ namespace Baubit.Mediation
             throw new TaskCanceledException(string.Empty, null);
         }
 
+        /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, CancellationToken cancellationToken = default)
         {
             var enumerator = _cache.GetFutureAsyncEnumerator(cancellationToken);
@@ -109,6 +124,7 @@ namespace Baubit.Mediation
 
         #endregion
 
+        /// <inheritdoc/>
         public bool Subscribe<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
                                                    CancellationToken cancellationToken)
             where TRequest : IRequest<TResponse>
@@ -121,6 +137,7 @@ namespace Baubit.Mediation
             return true;
         }
 
+        /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler, CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
@@ -161,6 +178,9 @@ namespace Baubit.Mediation
             }
         }
 
+        /// <summary>
+        /// Disposes the mediator, clearing all handlers and disposing the cache.
+        /// </summary>
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
