@@ -240,8 +240,8 @@ namespace Baubit.Mediation.Benchmark
     {
         public async Task<TResponse> Handle(TRequest request, MediatR.RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
-            // Pre-processing: simulate validation
-            if (request == null) throw new ArgumentNullException(nameof(request));
+            // Pre-processing: simulate validation (accessing request property)
+            _ = request.GetType().Name;
 
             return await next();
         }
