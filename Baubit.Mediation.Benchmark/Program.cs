@@ -22,6 +22,11 @@ public class BaubitResponse : IResponse
     public int Result { get; set; }
 }
 
+public class BaubitNotification
+{
+    public string Message { get; set; } = string.Empty;
+}
+
 public class BaubitSyncHandler : IRequestHandler<BaubitRequest, BaubitResponse>
 {
     public BaubitResponse Handle(BaubitRequest request)
@@ -47,6 +52,29 @@ public class BaubitAsyncHandler : IAsyncRequestHandler<BaubitRequest, BaubitResp
     public void Dispose() { }
 }
 
+public class BaubitNotificationSubscriber : ISubscriber<BaubitNotification>
+{
+    private int _count = 0;
+
+    public bool OnNext(BaubitNotification next)
+    {
+        System.Threading.Interlocked.Increment(ref _count);
+        return true;
+    }
+
+    public bool OnError(Exception error)
+    {
+        return true;
+    }
+
+    public bool OnCompleted()
+    {
+        return true;
+    }
+
+    public void Dispose() { }
+}
+
 #endregion
 
 #region MediatR Types
@@ -61,11 +89,27 @@ public class MediatRResponse
     public int Result { get; set; }
 }
 
+public class MediatRNotification : MediatR.INotification
+{
+    public string Message { get; set; } = string.Empty;
+}
+
 public class MediatRHandler : MediatR.IRequestHandler<MediatRRequest, MediatRResponse>
 {
     public Task<MediatRResponse> Handle(MediatRRequest request, CancellationToken cancellationToken)
     {
         return Task.FromResult(new MediatRResponse { Result = request.Value * 2 });
+    }
+}
+
+public class MediatRNotificationHandler : MediatR.INotificationHandler<MediatRNotification>
+{
+    private int _count = 0;
+
+    public Task Handle(MediatRNotification notification, CancellationToken cancellationToken)
+    {
+        System.Threading.Interlocked.Increment(ref _count);
+        return Task.CompletedTask;
     }
 }
 

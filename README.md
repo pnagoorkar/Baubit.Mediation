@@ -97,18 +97,6 @@ Console.WriteLine(response.Name); // "User 1"
 - `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler
 - `ISubscriber<T>` - Notification subscriber
 
-## Performance
-
-Benchmark comparison with MediatR 12.4.1:
-
-| Method | Mean | Allocated |
-|--------|------|-----------|
-| Baubit Sync | 68 ns | 88 B |
-| Baubit Async | 125 ns | 304 B |
-| MediatR Send | 155 ns | 360 B |
-
-Baubit.Mediation is ~2.3x faster than MediatR with ~4x less memory allocation for synchronous operations.
-
 ## Dependencies
 
 - [Baubit.Caching](https://www.nuget.org/packages/Baubit.Caching/) - Ordered cache for message persistence
