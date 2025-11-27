@@ -2,6 +2,7 @@
 using Baubit.Caching.InMemory;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -25,6 +26,16 @@ namespace Baubit.Mediation.Test.Mediator
             public string Result { get; set; } = string.Empty;
         }
 
+        public class TestRequest2 : IRequest<TestResponse2>
+        {
+            public int Id { get; set; }
+        }
+
+        public class TestResponse2 : IResponse
+        {
+            public int ComputedValue { get; set; }
+        }
+
         public class TestSyncHandler : IRequestHandler<TestRequest, TestResponse>
         {
             public TestResponse Handle(TestRequest request)
@@ -35,6 +46,21 @@ namespace Baubit.Mediation.Test.Mediator
             public Task<TestResponse> HandleSyncAsync(TestRequest request, CancellationToken cancellationToken = default)
             {
                 return Task.FromResult(new TestResponse { Result = $"Handled: {request.Value}" });
+            }
+
+            public void Dispose() { }
+        }
+
+        public class TestSyncHandler2 : IRequestHandler<TestRequest2, TestResponse2>
+        {
+            public TestResponse2 Handle(TestRequest2 request)
+            {
+                return new TestResponse2 { ComputedValue = request.Id * 2 };
+            }
+
+            public Task<TestResponse2> HandleSyncAsync(TestRequest2 request, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(new TestResponse2 { ComputedValue = request.Id * 2 });
             }
 
             public void Dispose() { }
@@ -144,6 +170,49 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
+        public void Subscribe_MultipleHandlerTypes_RegistersBoth()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler2();
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, cts.Token);
+            var result2 = mediator.Subscribe<TestRequest2, TestResponse2>(handler2, cts.Token);
+
+            // Assert - both handlers should be registered since they handle different types
+            Assert.True(result1);
+            Assert.True(result2);
+        }
+
+        [Fact]
+        public void Publish_WithMultipleHandlerTypes_RoutesToCorrectHandler()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler2();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler1, cts.Token);
+            mediator.Subscribe<TestRequest2, TestResponse2>(handler2, cts.Token);
+
+            var request1 = new TestRequest { Value = "test" };
+            var request2 = new TestRequest2 { Id = 5 };
+
+            // Act
+            var response1 = mediator.Publish<TestRequest, TestResponse>(request1);
+            var response2 = mediator.Publish<TestRequest2, TestResponse2>(request2);
+
+            // Assert
+            Assert.Equal("Handled: test", response1.Result);
+            Assert.Equal(10, response2.ComputedValue);
+        }
+
+        [Fact]
         public void Publish_WithRegisteredHandler_ReturnsResponse()
         {
             // Arrange
@@ -206,6 +275,74 @@ namespace Baubit.Mediation.Test.Mediator
             // Act & Assert
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => mediator.PublishAsync<TestRequest, TestResponse>(request));
+        }
+
+        [Fact]
+        public async Task PublishAsync_ConcurrentRequests_AllProcessedSuccessfully()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestSyncHandler();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler, cts.Token);
+
+            const int requestCount = 100;
+            var tasks = new List<Task<TestResponse>>(requestCount);
+
+            // Act - Fire many concurrent requests
+            for (int i = 0; i < requestCount; i++)
+            {
+                var request = new TestRequest { Value = $"request-{i}" };
+                tasks.Add(mediator.PublishAsync<TestRequest, TestResponse>(request));
+            }
+
+            var responses = await Task.WhenAll(tasks);
+
+            // Assert
+            Assert.Equal(requestCount, responses.Length);
+            for (int i = 0; i < requestCount; i++)
+            {
+                Assert.NotNull(responses[i]);
+                Assert.Equal($"Handled: request-{i}", responses[i].Result);
+            }
+        }
+
+        [Fact]
+        public void Publish_ConcurrentRequests_AllProcessedSuccessfully()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestSyncHandler();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler, cts.Token);
+
+            const int requestCount = 100;
+            var results = new TestResponse[requestCount];
+            var exceptions = new Exception?[requestCount];
+
+            // Act - Fire many concurrent requests using Parallel.For
+            Parallel.For(0, requestCount, i =>
+            {
+                try
+                {
+                    var request = new TestRequest { Value = $"request-{i}" };
+                    results[i] = mediator.Publish<TestRequest, TestResponse>(request);
+                }
+                catch (Exception ex)
+                {
+                    exceptions[i] = ex;
+                }
+            });
+
+            // Assert
+            for (int i = 0; i < requestCount; i++)
+            {
+                Assert.Null(exceptions[i]);
+                Assert.NotNull(results[i]);
+                Assert.Equal($"Handled: request-{i}", results[i].Result);
+            }
         }
 
         [Fact]
@@ -292,6 +429,36 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
+        public void Subscribe_AfterCancellation_CanReregister()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler();
+            var cts1 = new CancellationTokenSource();
+
+            // Register first handler
+            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, cts1.Token);
+            Assert.True(result1);
+
+            // Cancel first handler
+            cts1.Cancel();
+            Thread.Sleep(50);
+
+            // Act - Register a new handler for the same type
+            using var cts2 = new CancellationTokenSource();
+            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, cts2.Token);
+
+            // Assert - Should be able to register after cancellation
+            Assert.True(result2);
+
+            var request = new TestRequest { Value = "test" };
+            var response = mediator.Publish<TestRequest, TestResponse>(request);
+            Assert.NotNull(response);
+        }
+
+        [Fact]
         public void Dispose_ClearsHandlers()
         {
             // Arrange
@@ -312,6 +479,33 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Assert - Handler should be cleared after dispose
             Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest, TestResponse>(request));
+        }
+
+        [Fact]
+        public void Dispose_MultipleHandlerTypes_ClearsAll()
+        {
+            // Arrange
+            var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler2();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler1, cts.Token);
+            mediator.Subscribe<TestRequest2, TestResponse2>(handler2, cts.Token);
+
+            var request1 = new TestRequest { Value = "test" };
+            var request2 = new TestRequest2 { Id = 5 };
+
+            // Verify handlers are registered
+            Assert.NotNull(mediator.Publish<TestRequest, TestResponse>(request1));
+            Assert.NotNull(mediator.Publish<TestRequest2, TestResponse2>(request2));
+
+            // Act
+            mediator.Dispose();
+
+            // Assert - Both handlers should be cleared after dispose
+            Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest, TestResponse>(request1));
+            Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest2, TestResponse2>(request2));
         }
     }
 }

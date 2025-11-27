@@ -11,6 +11,19 @@
 
 Lightweight mediator pattern implementation with cache-backed async request/response routing.
 
+## Performance
+
+Baubit.Mediation significantly outperforms MediatR in request/response scenarios:
+
+| Scenario | Baubit.Mediation | MediatR | Improvement |
+|----------|------------------|---------|-------------|
+| Simple Request/Response (Sync) | 44 ns / 22.7M ops/sec | 932 ns / 1.1M ops/sec | **21x faster** |
+| Simple Request/Response (Async) | 396 ns / 2.5M ops/sec | 932 ns / 1.1M ops/sec | **2.4x faster** |
+| Parallel Load (1000 ops) | 58 µs | 133 µs | **2.3x faster** |
+| Memory per Operation | 24 B | 361 B | **15x less** |
+
+For detailed benchmark results and methodology, see [Benchmark Results](Baubit.Mediation.Benchmark/results.md).
+
 ## Installation
 
 ```
