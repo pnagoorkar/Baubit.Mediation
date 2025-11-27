@@ -1,28 +1,106 @@
-# Baubit.Template
+# Baubit.Mediation
 
-A template repository for .NET projects with CircleCI integration, code coverage, and automated package publishing.
 
-## Using This Template
+[![CircleCI](https://dl.circleci.com/status-badge/img/circleci/TpM4QUH8Djox7cjDaNpup5/2zTgJzKbD2m3nXCf5LKvqS/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/TpM4QUH8Djox7cjDaNpup5/2zTgJzKbD2m3nXCf5LKvqS/tree/master)
+[![codecov](https://codecov.io/gh/pnagoorkar/Baubit.Mediation/branch/master/graph/badge.svg)](https://codecov.io/gh/pnagoorkar/Baubit.Mediation)<br/>
+[![NuGet](https://img.shields.io/nuget/v/Baubit.Mediation.svg)](https://www.nuget.org/packages/Baubit.Mediation/)
+![.NET Standard 2.0](https://img.shields.io/badge/.NET%20Standard-2.0-512BD4?logo=dotnet&logoColor=white)<br/>
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Known Vulnerabilities](https://snyk.io/test/github/pnagoorkar/Baubit.Mediation/badge.svg)](https://snyk.io/test/github/pnagoorkar/Baubit.Mediation)
 
-Follow these steps to use this template for your new project:
 
-1. **Update .circleci/config.yml with solution and project names in your repository**
-   - Replace all instances of `<YOUR_SOLUTION_NAME>` with your solution name
-   - Replace all instances of `<YOUR_PROJECT_NAME>` with your project name
+Lightweight mediator pattern implementation with cache-backed async request/response routing.
 
-2. **Add CODECOV_TOKEN_Your_Project_Name in Context_Prashant in CircleCI**
-   - Go to CircleCI project settings
-   - Navigate to Contexts and find `Context_Prashant`
-   - Add an environment variable named `CODECOV_TOKEN_{YOUR_PROJECT_NAME}` 
-     - Replace dots in your project name with underscores (e.g., `My.Project` becomes `CODECOV_TOKEN_My_Project`)
-     - This is required for CircleCI environment variable naming conventions
-   - Set the value to your Codecov token from Codecov.io
+## Installation
 
-3. **Configure repo settings in GitHub - branch protection rules etc**
-   - Set up branch protection rules for `master` and `release` branches
-   - Configure required status checks
-   - Set up code review requirements as needed
+```
+dotnet add package Baubit.Mediation
+```
 
-4. **Import projects in Codecov.io and Snyk.io**
-   - Import your repository in [Codecov.io](https://codecov.io) for code coverage tracking
-   - Import your repository in [Snyk.io](https://snyk.io) for security vulnerability scanning
+## Quick Start
+
+```csharp
+using Baubit.Mediation;
+using Baubit.Caching;
+using Baubit.Caching.InMemory;
+using Microsoft.Extensions.Logging;
+
+// Create dependencies
+var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+var store = new Store<object>(loggerFactory);
+var metadata = new Metadata();
+var cache = new OrderedCache<object>(new Configuration(), null, store, metadata, loggerFactory);
+
+// Create mediator
+var mediator = new Mediator(cache, loggerFactory);
+
+// Define request/response
+public class GetUserRequest : IRequest<GetUserResponse>
+{
+    public int UserId { get; set; }
+}
+
+public class GetUserResponse : IResponse
+{
+    public string Name { get; set; }
+}
+
+// Define handler
+public class GetUserHandler : IRequestHandler<GetUserRequest, GetUserResponse>
+{
+    public GetUserResponse Handle(GetUserRequest request)
+    {
+        return new GetUserResponse { Name = $"User {request.UserId}" };
+    }
+
+    public Task<GetUserResponse> HandleSyncAsync(GetUserRequest request, CancellationToken ct = default)
+    {
+        return Task.FromResult(Handle(request));
+    }
+
+    public void Dispose() { }
+}
+
+// Register handler and publish request
+using var cts = new CancellationTokenSource();
+mediator.Subscribe<GetUserRequest, GetUserResponse>(new GetUserHandler(), cts.Token);
+
+var response = mediator.Publish<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
+Console.WriteLine(response.Name); // "User 1"
+```
+
+## Features
+
+- Synchronous and asynchronous request/response handling
+- Cache-backed async processing pipeline
+- Notification pub/sub with typed subscribers
+- Handler registration with cancellation token lifecycle
+- Thread-safe concurrent access
+
+## API Reference
+
+### IMediator
+
+| Method | Description |
+|--------|-------------|
+| `Publish(object)` | Publish a notification to subscribers |
+| `Publish<TRequest, TResponse>(request)` | Synchronous request/response |
+| `PublishAsync<TRequest, TResponse>(request)` | Async wrapper for sync handlers |
+| `PublishAsyncAsync<TRequest, TResponse>(request)` | Full async with cache-backed tracking |
+| `Subscribe<TRequest, TResponse>(handler, ct)` | Register sync handler |
+| `SubscribeAsync<TRequest, TResponse>(handler, ct)` | Register async handler |
+| `SubscribeAsync<T>(subscriber, ct)` | Subscribe to notifications |
+
+### Handler Interfaces
+
+- `IRequestHandler<TRequest, TResponse>` - Synchronous handler
+- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler
+- `ISubscriber<T>` - Notification subscriber
+
+## Dependencies
+
+- [Baubit.Caching](https://www.nuget.org/packages/Baubit.Caching/) - Ordered cache for message persistence
+
+## License
+
+[MIT](LICENSE)
