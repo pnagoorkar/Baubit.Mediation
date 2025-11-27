@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Baubit.Mediation.Benchmark.MediatorBenchmarks-20251127-023326</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.6, Linux Ubuntu 24.04.3 LTS (Noble Numbat)
+AMD EPYC 7763 2.45GHz, 1 CPU, 4 logical and 2 physical cores
+.NET SDK 10.0.100
+  [Host]     : .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+  Job-VAIYHK : .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>InvocationCount=10000  IterationCount=10  WarmupCount=3  
+</code></pre>
+
+<table>
+<thead><tr><th>Method                                                       </th><th>OperationCount</th><th>Mean  </th><th>Error </th><th>StdDev</th><th>Op/s </th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>&#39;MediatR: Send (Request/Response)&#39;</td><td>100</td><td>1,175.6 ns</td><td>31.73 ns</td><td>18.88 ns</td><td>850,598.0</td><td>1.00</td><td>0.02</td><td>-</td><td>-</td><td>-</td><td>361 B</td><td>1.00</td>
+</tr><tr><td>&#39;Baubit: PublishAsync (Sync Handler, Request/Response)&#39;</td><td>100</td><td>573.8 ns</td><td>9.38 ns</td><td>4.91 ns</td><td>1,742,735.2</td><td>0.49</td><td>0.01</td><td>-</td><td>-</td><td>-</td><td>304 B</td><td>0.84</td>
+</tr><tr><td>&#39;Baubit: Publish (Sync Handler, Request/Response)&#39;</td><td>100</td><td>224.9 ns</td><td>6.31 ns</td><td>3.30 ns</td><td>4,446,608.2</td><td>0.19</td><td>0.00</td><td>-</td><td>-</td><td>-</td><td>88 B</td><td>0.24</td>
+</tr><tr><td>&#39;Baubit: PublishAsyncAsync (Async Handler) [NO MEDIATR EQUIVALENT]&#39;</td><td>100</td><td>17,721.7 ns</td><td>8,660.10 ns</td><td>5,728.12 ns</td><td>56,427.9</td><td>15.08</td><td>4.66</td><td>0.2000</td><td>-</td><td>-</td><td>3717 B</td><td>10.30</td>
+</tr><tr><td>&#39;MediatR: Publish (Notification)&#39;</td><td>100</td><td>1,093.2 ns</td><td>12.16 ns</td><td>8.04 ns</td><td>914,773.8</td><td>0.93</td><td>0.02</td><td>-</td><td>-</td><td>-</td><td>289 B</td><td>0.80</td>
+</tr><tr><td>&#39;Baubit: Publish (Notification)&#39;</td><td>100</td><td>3,423.9 ns</td><td>355.33 ns</td><td>235.03 ns</td><td>292,063.1</td><td>2.91</td><td>0.20</td><td>-</td><td>-</td><td>-</td><td>445 B</td><td>1.23</td>
+</tr><tr><td>&#39;MediatR: Mixed 80% Read, 20% Write&#39;</td><td>100</td><td>4,663.4 ns</td><td>1,717.67 ns</td><td>1,136.13 ns</td><td>214,436.5</td><td>3.97</td><td>0.92</td><td>-</td><td>-</td><td>-</td><td>1441 B</td><td>3.99</td>
+</tr><tr><td>&#39;Baubit: Mixed 80% Read, 20% Write&#39;</td><td>100</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td><td>?</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td>
+</tr><tr><td>&#39;MediatR: Mixed 50% Read, 50% Write&#39;</td><td>100</td><td>2,287.0 ns</td><td>523.00 ns</td><td>345.93 ns</td><td>437,257.9</td><td>1.95</td><td>0.28</td><td>-</td><td>-</td><td>-</td><td>577 B</td><td>1.60</td>
+</tr><tr><td>&#39;Baubit: Mixed 50% Read, 50% Write&#39;</td><td>100</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td><td>?</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td>
+</tr><tr><td>&#39;MediatR: Concurrent Send&#39;</td><td>100</td><td>13,729.5 ns</td><td>270.95 ns</td><td>179.22 ns</td><td>72,835.6</td><td>11.68</td><td>0.23</td><td>1.8000</td><td>-</td><td>-</td><td>31393 B</td><td>86.96</td>
+</tr><tr><td>&#39;Baubit: Concurrent PublishAsync (Sync Handler)&#39;</td><td>100</td><td>12,312.3 ns</td><td>156.38 ns</td><td>103.44 ns</td><td>81,219.9</td><td>10.48</td><td>0.18</td><td>1.5000</td><td>-</td><td>-</td><td>25792 B</td><td>71.45</td>
+</tr><tr><td>&#39;Baubit: Concurrent Publish (Sync Handler)&#39;</td><td>100</td><td>27,537.3 ns</td><td>1,946.10 ns</td><td>1,287.22 ns</td><td>36,314.4</td><td>23.43</td><td>1.10</td><td>0.7000</td><td>0.6000</td><td>-</td><td>13215 B</td><td>36.61</td>
+</tr><tr><td>&#39;MediatR: Send (Request/Response)&#39;</td><td>1000</td><td>1,146.3 ns</td><td>101.48 ns</td><td>60.39 ns</td><td>872,370.2</td><td>1.00</td><td>0.08</td><td>-</td><td>-</td><td>-</td><td>361 B</td><td>1.00</td>
+</tr><tr><td>&#39;Baubit: PublishAsync (Sync Handler, Request/Response)&#39;</td><td>1000</td><td>595.3 ns</td><td>5.09 ns</td><td>2.66 ns</td><td>1,679,818.6</td><td>0.52</td><td>0.03</td><td>-</td><td>-</td><td>-</td><td>304 B</td><td>0.84</td>
+</tr><tr><td>&#39;Baubit: Publish (Sync Handler, Request/Response)&#39;</td><td>1000</td><td>202.5 ns</td><td>3.38 ns</td><td>2.23 ns</td><td>4,938,440.9</td><td>0.18</td><td>0.01</td><td>-</td><td>-</td><td>-</td><td>88 B</td><td>0.24</td>
+</tr><tr><td>&#39;Baubit: PublishAsyncAsync (Async Handler) [NO MEDIATR EQUIVALENT]&#39;</td><td>1000</td><td>21,924.0 ns</td><td>12,671.77 ns</td><td>8,381.59 ns</td><td>45,612.1</td><td>19.18</td><td>7.09</td><td>0.2000</td><td>-</td><td>-</td><td>3717 B</td><td>10.30</td>
+</tr><tr><td>&#39;MediatR: Publish (Notification)&#39;</td><td>1000</td><td>1,041.3 ns</td><td>75.11 ns</td><td>49.68 ns</td><td>960,357.0</td><td>0.91</td><td>0.07</td><td>-</td><td>-</td><td>-</td><td>289 B</td><td>0.80</td>
+</tr><tr><td>&#39;Baubit: Publish (Notification)&#39;</td><td>1000</td><td>3,235.8 ns</td><td>187.18 ns</td><td>123.81 ns</td><td>309,046.7</td><td>2.83</td><td>0.19</td><td>-</td><td>-</td><td>-</td><td>442 B</td><td>1.22</td>
+</tr><tr><td>&#39;MediatR: Mixed 80% Read, 20% Write&#39;</td><td>1000</td><td>3,421.7 ns</td><td>2,725.10 ns</td><td>1,802.48 ns</td><td>292,250.4</td><td>2.99</td><td>1.52</td><td>-</td><td>-</td><td>-</td><td>1441 B</td><td>3.99</td>
+</tr><tr><td>&#39;Baubit: Mixed 80% Read, 20% Write&#39;</td><td>1000</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td><td>?</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td>
+</tr><tr><td>&#39;MediatR: Mixed 50% Read, 50% Write&#39;</td><td>1000</td><td>2,269.0 ns</td><td>744.84 ns</td><td>492.67 ns</td><td>440,723.5</td><td>1.98</td><td>0.43</td><td>-</td><td>-</td><td>-</td><td>577 B</td><td>1.60</td>
+</tr><tr><td>&#39;Baubit: Mixed 50% Read, 50% Write&#39;</td><td>1000</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td><td>?</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>?</td>
+</tr><tr><td>&#39;MediatR: Concurrent Send&#39;</td><td>1000</td><td>135,716.5 ns</td><td>1,731.65 ns</td><td>1,030.48 ns</td><td>7,368.3</td><td>118.73</td><td>6.81</td><td>18.6000</td><td>5.4000</td><td>-</td><td>312193 B</td><td>864.80</td>
+</tr><tr><td>&#39;Baubit: Concurrent PublishAsync (Sync Handler)&#39;</td><td>1000</td><td>119,931.0 ns</td><td>1,503.22 ns</td><td>994.29 ns</td><td>8,338.1</td><td>104.92</td><td>6.03</td><td>15.3000</td><td>4.5000</td><td>-</td><td>256192 B</td><td>709.67</td>
+</tr><tr><td>&#39;Baubit: Concurrent Publish (Sync Handler)&#39;</td><td>1000</td><td>220,133.5 ns</td><td>5,085.99 ns</td><td>3,364.07 ns</td><td>4,542.7</td><td>192.58</td><td>11.31</td><td>6.9000</td><td>6.8000</td><td>0.7000</td><td>113243 B</td><td>313.69</td>
+</tr></tbody></table>
+</body>
+</html>
