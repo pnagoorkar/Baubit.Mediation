@@ -1,10 +1,11 @@
 ﻿using Baubit.Caching;
 using Baubit.Collections;
 using Baubit.Identity;
+using Baubit.Tasks;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,7 +19,8 @@ namespace Baubit.Mediation
     public class Mediator : IMediator
     {
         private bool disposedValue;
-        private IList<IRequestHandler> _syncHandlers = new ConcurrentList<IRequestHandler>();
+        private readonly ConcurrentDictionary<Type, IRequestHandler> _syncHandlersByType = new ConcurrentDictionary<Type, IRequestHandler>();
+        private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> _subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
         private IList<IRequestHandler> _asyncHandlers = new ConcurrentList<IRequestHandler>();
         private IOrderedCache<object> _cache;
         private ILogger<Mediator> _logger;
@@ -38,9 +40,24 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public bool Publish(object notification)
+        public bool Publish<T>(T notification)
         {
-            return _cache.Add(notification, out _);
+            var retVal = true;
+            if (_subscribersByType.TryGetValue(typeof(ISubscriber<T>), out var subscriptions))
+            {
+                foreach (var subBufPair in subscriptions)
+                {
+                    if (subBufPair.Item2)
+                    {
+                        retVal &= _cache.Add(notification, out _);
+                    }
+                    else
+                    {
+                        retVal &= ((ISubscriber<T>)subBufPair.Item1).OnNextOrError(notification);
+                    }
+                }
+            }
+            return retVal;
         }
 
         /// <inheritdoc/>
@@ -48,8 +65,11 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            var handler = _syncHandlers.SingleOrDefault(h => h is IRequestHandler<TRequest, TResponse>);
-            if (handler == null) throw new InvalidOperationException("No handler registered!");
+            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
+            if (!_syncHandlersByType.TryGetValue(handlerType, out var handler))
+            {
+                throw new InvalidOperationException("No handler registered!");
+            }
             return ((IRequestHandler<TRequest, TResponse>)handler).Handle(request);
         }
 
@@ -58,8 +78,11 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            var handler = _syncHandlers.SingleOrDefault(h => h is IRequestHandler<TRequest, TResponse>);
-            if (handler == null) throw new InvalidOperationException("No handler registered!");
+            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
+            if (!_syncHandlersByType.TryGetValue(handlerType, out var handler))
+            {
+                throw new InvalidOperationException("No handler registered!");
+            }
             return await ((IRequestHandler<TRequest, TResponse>)handler).HandleSyncAsync(request);
         }
 
@@ -92,14 +115,42 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, CancellationToken cancellationToken = default)
+        public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber,
+                                                  bool enableBuffering = true,
+                                                  CancellationToken cancellationToken = default)
         {
-            var enumerator = _cache.GetFutureAsyncEnumerator(cancellationToken);
-            while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+            var subscriberType = typeof(ISubscriber<T>);
+            var subscribers = _subscribersByType.GetOrAdd(subscriberType, new ConcurrentList<(ISubscriber, bool)>());
+            var subBufPair = (subscriber, enableBuffering);
+            try
             {
-                if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
+                subscribers.Add(subBufPair);
+                if (enableBuffering)
+                {
+                    var enumerator = _cache.GetFutureAsyncEnumerator(cancellationToken);
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
+                    }
+                    return true;
+                }
+                else
+                {
+                    var tcs = new TaskCompletionSource<bool>();
+                    tcs.RegisterCancellationToken(cancellationToken); // subscription ends only when the caller cancels via the cancellationToken
+                    return await tcs.Task;
+                }
             }
-            return true;
+            catch (TaskCanceledException)
+            {
+                // expected
+                return true;
+            }
+            finally
+            {
+
+                subscribers.Remove(subBufPair);
+            }
         }
 
         #region MoveToBaubit.Mediation.Extensions
@@ -130,10 +181,18 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            if (_syncHandlers.Any(handler => handler is IRequestHandler<TRequest, TResponse>)) return false;
-            _syncHandlers.Add(requestHandler);
+            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
+            if (!_syncHandlersByType.TryAdd(handlerType, requestHandler))
+            {
+                return false;
+            }
+
             CancellationTokenRegistration registration = default;
-            registration = cancellationToken.Register(() => { _syncHandlers.Remove(requestHandler); registration.Dispose(); });
+            registration = cancellationToken.Register(() =>
+            {
+                _syncHandlersByType.TryRemove(handlerType, out _);
+                registration.Dispose();
+            });
             return true;
         }
 
@@ -171,7 +230,8 @@ namespace Baubit.Mediation
                 if (disposing)
                 {
                     _cache.Dispose();
-                    _syncHandlers.Clear();
+                    _syncHandlersByType.Clear();
+                    _subscribersByType.Clear();
                     _asyncHandlers.Clear();
                 }
                 disposedValue = true;

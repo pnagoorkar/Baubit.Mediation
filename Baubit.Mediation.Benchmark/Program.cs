@@ -42,16 +42,6 @@ public class BaubitSyncHandler : IRequestHandler<BaubitRequest, BaubitResponse>
     public void Dispose() { }
 }
 
-public class BaubitAsyncHandler : IAsyncRequestHandler<BaubitRequest, BaubitResponse>
-{
-    public Task<BaubitResponse> HandleAsyncAsync(BaubitRequest request)
-    {
-        return Task.FromResult(new BaubitResponse { Result = request.Value * 2 });
-    }
-
-    public void Dispose() { }
-}
-
 public class BaubitNotificationSubscriber : ISubscriber<BaubitNotification>
 {
     private int _count = 0;
@@ -114,4 +104,3 @@ public class MediatRNotificationHandler : MediatR.INotificationHandler<MediatRNo
 }
 
 #endregion
-

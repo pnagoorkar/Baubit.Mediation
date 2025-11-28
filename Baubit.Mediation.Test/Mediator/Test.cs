@@ -2,6 +2,7 @@
 using Baubit.Caching.InMemory;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -25,6 +26,16 @@ namespace Baubit.Mediation.Test.Mediator
             public string Result { get; set; } = string.Empty;
         }
 
+        public class TestRequest2 : IRequest<TestResponse2>
+        {
+            public int Id { get; set; }
+        }
+
+        public class TestResponse2 : IResponse
+        {
+            public int ComputedValue { get; set; }
+        }
+
         public class TestSyncHandler : IRequestHandler<TestRequest, TestResponse>
         {
             public TestResponse Handle(TestRequest request)
@@ -35,6 +46,21 @@ namespace Baubit.Mediation.Test.Mediator
             public Task<TestResponse> HandleSyncAsync(TestRequest request, CancellationToken cancellationToken = default)
             {
                 return Task.FromResult(new TestResponse { Result = $"Handled: {request.Value}" });
+            }
+
+            public void Dispose() { }
+        }
+
+        public class TestSyncHandler2 : IRequestHandler<TestRequest2, TestResponse2>
+        {
+            public TestResponse2 Handle(TestRequest2 request)
+            {
+                return new TestResponse2 { ComputedValue = request.Id * 2 };
+            }
+
+            public Task<TestResponse2> HandleSyncAsync(TestRequest2 request, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(new TestResponse2 { ComputedValue = request.Id * 2 });
             }
 
             public void Dispose() { }
@@ -99,6 +125,11 @@ namespace Baubit.Mediation.Test.Mediator
             // Arrange
             using var cache = CreateCache();
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription in background
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
 
             // Act
             var result = mediator.Publish("test-notification");
@@ -141,6 +172,49 @@ namespace Baubit.Mediation.Test.Mediator
             // Assert
             Assert.True(result1);
             Assert.False(result2);
+        }
+
+        [Fact]
+        public void Subscribe_MultipleHandlerTypes_RegistersBoth()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler2();
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, cts.Token);
+            var result2 = mediator.Subscribe<TestRequest2, TestResponse2>(handler2, cts.Token);
+
+            // Assert - both handlers should be registered since they handle different types
+            Assert.True(result1);
+            Assert.True(result2);
+        }
+
+        [Fact]
+        public void Publish_WithMultipleHandlerTypes_RoutesToCorrectHandler()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler2();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler1, cts.Token);
+            mediator.Subscribe<TestRequest2, TestResponse2>(handler2, cts.Token);
+
+            var request1 = new TestRequest { Value = "test" };
+            var request2 = new TestRequest2 { Id = 5 };
+
+            // Act
+            var response1 = mediator.Publish<TestRequest, TestResponse>(request1);
+            var response2 = mediator.Publish<TestRequest2, TestResponse2>(request2);
+
+            // Assert
+            Assert.Equal("Handled: test", response1.Result);
+            Assert.Equal(10, response2.ComputedValue);
         }
 
         [Fact]
@@ -209,6 +283,74 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
+        public async Task PublishAsync_ConcurrentRequests_AllProcessedSuccessfully()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestSyncHandler();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler, cts.Token);
+
+            const int requestCount = 100;
+            var tasks = new List<Task<TestResponse>>(requestCount);
+
+            // Act - Fire many concurrent requests
+            for (int i = 0; i < requestCount; i++)
+            {
+                var request = new TestRequest { Value = $"request-{i}" };
+                tasks.Add(mediator.PublishAsync<TestRequest, TestResponse>(request));
+            }
+
+            var responses = await Task.WhenAll(tasks);
+
+            // Assert
+            Assert.Equal(requestCount, responses.Length);
+            for (int i = 0; i < requestCount; i++)
+            {
+                Assert.NotNull(responses[i]);
+                Assert.Equal($"Handled: request-{i}", responses[i].Result);
+            }
+        }
+
+        [Fact]
+        public void Publish_ConcurrentRequests_AllProcessedSuccessfully()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestSyncHandler();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler, cts.Token);
+
+            const int requestCount = 100;
+            var results = new TestResponse[requestCount];
+            var exceptions = new Exception?[requestCount];
+
+            // Act - Fire many concurrent requests using Parallel.For
+            Parallel.For(0, requestCount, i =>
+            {
+                try
+                {
+                    var request = new TestRequest { Value = $"request-{i}" };
+                    results[i] = mediator.Publish<TestRequest, TestResponse>(request);
+                }
+                catch (Exception ex)
+                {
+                    exceptions[i] = ex;
+                }
+            });
+
+            // Assert
+            for (int i = 0; i < requestCount; i++)
+            {
+                Assert.Null(exceptions[i]);
+                Assert.NotNull(results[i]);
+                Assert.Equal($"Handled: request-{i}", results[i].Result);
+            }
+        }
+
+        [Fact]
         public async Task SubscribeAsync_WithAsyncHandler_ProcessesRequests()
         {
             // Arrange
@@ -249,7 +391,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start subscription in background
-            var subscribeTask = mediator.SubscribeAsync(subscriber, cts.Token);
+            var subscribeTask = mediator.SubscribeAsync(subscriber, false, cts.Token);
 
             // Publish a notification
             await Task.Delay(50); // Allow subscription to start
@@ -292,6 +434,36 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
+        public void Subscribe_AfterCancellation_CanReregister()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler();
+            var cts1 = new CancellationTokenSource();
+
+            // Register first handler
+            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, cts1.Token);
+            Assert.True(result1);
+
+            // Cancel first handler
+            cts1.Cancel();
+            Thread.Sleep(50);
+
+            // Act - Register a new handler for the same type
+            using var cts2 = new CancellationTokenSource();
+            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, cts2.Token);
+
+            // Assert - Should be able to register after cancellation
+            Assert.True(result2);
+
+            var request = new TestRequest { Value = "test" };
+            var response = mediator.Publish<TestRequest, TestResponse>(request);
+            Assert.NotNull(response);
+        }
+
+        [Fact]
         public void Dispose_ClearsHandlers()
         {
             // Arrange
@@ -312,6 +484,290 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Assert - Handler should be cleared after dispose
             Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest, TestResponse>(request));
+        }
+
+        [Fact]
+        public void Dispose_MultipleHandlerTypes_ClearsAll()
+        {
+            // Arrange
+            var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler2();
+            using var cts = new CancellationTokenSource();
+            mediator.Subscribe<TestRequest, TestResponse>(handler1, cts.Token);
+            mediator.Subscribe<TestRequest2, TestResponse2>(handler2, cts.Token);
+
+            var request1 = new TestRequest { Value = "test" };
+            var request2 = new TestRequest2 { Id = 5 };
+
+            // Verify handlers are registered
+            Assert.NotNull(mediator.Publish<TestRequest, TestResponse>(request1));
+            Assert.NotNull(mediator.Publish<TestRequest2, TestResponse2>(request2));
+
+            // Act
+            mediator.Dispose();
+
+            // Assert - Both handlers should be cleared after dispose
+            Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest, TestResponse>(request1));
+            Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest2, TestResponse2>(request2));
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithoutBuffering_DoesNotAddToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription in background with buffering disabled
+            var subscribeTask = mediator.SubscribeAsync(subscriber, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act
+            var result = mediator.Publish("test-notification");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(0, cache.Count); // Should not be in cache
+            await Task.Delay(100); // Give time for notification processing
+            Assert.Equal("test-notification", subscriber.LastValue); // Should be delivered directly
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithoutBuffering_ConcurrentPublish()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            var receivedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var countingSubscriber = new CountingSubscriber(receivedMessages);
+
+            // Start subscription in background with buffering disabled
+            var subscribeTask = mediator.SubscribeAsync(countingSubscriber, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act - Publish notifications concurrently
+            const int messageCount = 100;
+            var publishTasks = new List<Task>();
+            for (int i = 0; i < messageCount; i++)
+            {
+                var message = $"message-{i}";
+                publishTasks.Add(Task.Run(() => mediator.Publish(message)));
+            }
+            await Task.WhenAll(publishTasks);
+
+            // Wait for processing
+            await Task.Delay(200);
+
+            // Assert
+            Assert.Equal(0, cache.Count); // Nothing should be in cache
+            Assert.Equal(messageCount, receivedMessages.Count);
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithoutBuffering_SubscriberError_ReturnsTrue()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var errorSubscriber = new ErrorThrowingSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription in background with buffering disabled
+            var subscribeTask = mediator.SubscribeAsync(errorSubscriber, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act
+            var result = mediator.Publish("test-notification");
+
+            // Assert
+            Assert.True(result); // Should still return true even if subscriber throws
+            await Task.Delay(100);
+            Assert.NotNull(errorSubscriber.LastError); // Error should be captured
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        // Helper classes for new tests
+        public class CountingSubscriber : ISubscriber<string>
+        {
+            private readonly System.Collections.Concurrent.ConcurrentBag<string> _messages;
+
+            public CountingSubscriber(System.Collections.Concurrent.ConcurrentBag<string> messages)
+            {
+                _messages = messages;
+            }
+
+            public bool OnNext(string next)
+            {
+                _messages.Add(next);
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        public class ErrorThrowingSubscriber : ISubscriber<string>
+        {
+            public Exception? LastError { get; private set; }
+
+            public bool OnNext(string next)
+            {
+                throw new InvalidOperationException("Test error");
+            }
+
+            public bool OnError(Exception error)
+            {
+                LastError = error;
+                return true;
+            }
+
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithBuffering_AddsToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription with buffering enabled (default)
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
+
+            // Act
+            var result = mediator.Publish("cached-notification");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(1, cache.Count);
+            await Task.Delay(100); // Give time for subscriber to process
+            Assert.Equal("cached-notification", subscriber.LastValue);
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithBuffering_ConcurrentPublish()
+        {
+            // Arrange
+            using var cts = new CancellationTokenSource();
+            using var cache = CreateCache();
+            var cacheEnumerator = cache.GetFutureAsyncEnumerator(cts.Token); // this is to keep evictions from kicking in. Tests have been failing intermittently because eviction changes cache count
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var receivedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var subscriber = new CountingSubscriber(receivedMessages);
+
+            // Start subscription with buffering enabled
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
+
+            // Act - Publish notifications concurrently
+            const int messageCount = 100;
+            var publishTasks = new List<Task>();
+            for (int i = 0; i < messageCount; i++)
+            {
+                var message = $"cached-{i}";
+                publishTasks.Add(Task.Run(() => mediator.Publish(message)));
+            }
+            await Task.WhenAll(publishTasks);
+
+            // Wait for processing
+            await Task.Delay(500);
+
+            // Assert
+            Assert.Equal(messageCount, cache.Count);
+            Assert.Equal(messageCount, receivedMessages.Count);
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_MultipleSubscribers_MixedBuffering()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+
+            var bufferedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var unbufferedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+
+            var bufferedSubscriber = new CountingSubscriber(bufferedMessages);
+            var unbufferedSubscriber = new CountingSubscriber(unbufferedMessages);
+
+            using var cts = new CancellationTokenSource();
+
+            // Start both subscriptions - one buffered, one not
+            var bufferedTask = mediator.SubscribeAsync(bufferedSubscriber, true, cts.Token);
+            var unbufferedTask = mediator.SubscribeAsync(unbufferedSubscriber, false, cts.Token);
+            await Task.Delay(100); // Allow subscriptions to start
+
+            // Act - Publish notifications
+            const int messageCount = 50;
+            for (int i = 0; i < messageCount; i++)
+            {
+                mediator.Publish($"msg-{i}");
+            }
+
+            // Wait for processing
+            await Task.Delay(500);
+
+            // Assert - Both subscribers should receive all messages
+            Assert.Equal(messageCount, cache.Count); // Cache has all messages
+            Assert.Equal(messageCount, bufferedMessages.Count); // Buffered subscriber got all
+            Assert.Equal(messageCount, unbufferedMessages.Count); // Unbuffered subscriber got all
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NoSubscribers_WithBufferingTrue_AddsToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Do NOT start any subscription first
+
+            // Act - Publish notification before subscriber exists
+            mediator.Publish("early-message");
+            Assert.Equal(0, cache.Count); // No subscribers registered, so not added to cache
+
+            // Now subscribe with buffering
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
+
+            // Publish after subscription
+            mediator.Publish("late-message");
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(1, cache.Count); // Only the message after subscription
+            Assert.Equal("late-message", subscriber.LastValue);
+
+            // Cleanup
+            cts.Cancel();
         }
     }
 }

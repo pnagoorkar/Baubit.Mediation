@@ -2,11 +2,15 @@
 
 namespace Baubit.Mediation
 {
+    public interface ISubscriber : IDisposable
+    {
+
+    }
     /// <summary>
     /// Defines a subscriber that receives notifications of a specific type.
     /// </summary>
     /// <typeparam name="T">The type of notifications to receive.</typeparam>
-    public interface ISubscriber<T> : IDisposable
+    public interface ISubscriber<T> : ISubscriber
     {
         /// <summary>
         /// Called when a new notification is received.
