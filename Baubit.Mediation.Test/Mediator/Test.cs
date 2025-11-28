@@ -512,5 +512,261 @@ namespace Baubit.Mediation.Test.Mediator
             Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest, TestResponse>(request1));
             Assert.Throws<InvalidOperationException>(() => mediator.Publish<TestRequest2, TestResponse2>(request2));
         }
+
+        [Fact]
+        public async Task Publish_NotificationWithoutBuffering_DoesNotAddToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription in background with buffering disabled
+            var subscribeTask = mediator.SubscribeAsync(subscriber, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act
+            var result = mediator.Publish("test-notification");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(0, cache.Count); // Should not be in cache
+            await Task.Delay(100); // Give time for notification processing
+            Assert.Equal("test-notification", subscriber.LastValue); // Should be delivered directly
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithoutBuffering_ConcurrentPublish()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            var receivedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var countingSubscriber = new CountingSubscriber(receivedMessages);
+
+            // Start subscription in background with buffering disabled
+            var subscribeTask = mediator.SubscribeAsync(countingSubscriber, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act - Publish notifications concurrently
+            const int messageCount = 100;
+            var publishTasks = new List<Task>();
+            for (int i = 0; i < messageCount; i++)
+            {
+                var message = $"message-{i}";
+                publishTasks.Add(Task.Run(() => mediator.Publish(message)));
+            }
+            await Task.WhenAll(publishTasks);
+
+            // Wait for processing
+            await Task.Delay(200);
+
+            // Assert
+            Assert.Equal(0, cache.Count); // Nothing should be in cache
+            Assert.Equal(messageCount, receivedMessages.Count);
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithoutBuffering_SubscriberError_ReturnsTrue()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var errorSubscriber = new ErrorThrowingSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription in background with buffering disabled
+            var subscribeTask = mediator.SubscribeAsync(errorSubscriber, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act
+            var result = mediator.Publish("test-notification");
+
+            // Assert
+            Assert.True(result); // Should still return true even if subscriber throws
+            await Task.Delay(100);
+            Assert.NotNull(errorSubscriber.LastError); // Error should be captured
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        // Helper classes for new tests
+        public class CountingSubscriber : ISubscriber<string>
+        {
+            private readonly System.Collections.Concurrent.ConcurrentBag<string> _messages;
+
+            public CountingSubscriber(System.Collections.Concurrent.ConcurrentBag<string> messages)
+            {
+                _messages = messages;
+            }
+
+            public bool OnNext(string next)
+            {
+                _messages.Add(next);
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        public class ErrorThrowingSubscriber : ISubscriber<string>
+        {
+            public Exception? LastError { get; private set; }
+
+            public bool OnNext(string next)
+            {
+                throw new InvalidOperationException("Test error");
+            }
+
+            public bool OnError(Exception error)
+            {
+                LastError = error;
+                return true;
+            }
+
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithBuffering_AddsToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription with buffering enabled (default)
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
+
+            // Act
+            var result = mediator.Publish("cached-notification");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(1, cache.Count);
+            await Task.Delay(100); // Give time for subscriber to process
+            Assert.Equal("cached-notification", subscriber.LastValue);
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NotificationWithBuffering_ConcurrentPublish()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var receivedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var subscriber = new CountingSubscriber(receivedMessages);
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription with buffering enabled
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
+
+            // Act - Publish notifications concurrently
+            const int messageCount = 100;
+            var publishTasks = new List<Task>();
+            for (int i = 0; i < messageCount; i++)
+            {
+                var message = $"cached-{i}";
+                publishTasks.Add(Task.Run(() => mediator.Publish(message)));
+            }
+            await Task.WhenAll(publishTasks);
+
+            // Wait for processing
+            await Task.Delay(500);
+
+            // Assert
+            Assert.Equal(messageCount, cache.Count);
+            Assert.Equal(messageCount, receivedMessages.Count);
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_MultipleSubscribers_MixedBuffering()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            
+            var bufferedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var unbufferedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            
+            var bufferedSubscriber = new CountingSubscriber(bufferedMessages);
+            var unbufferedSubscriber = new CountingSubscriber(unbufferedMessages);
+            
+            using var cts = new CancellationTokenSource();
+
+            // Start both subscriptions - one buffered, one not
+            var bufferedTask = mediator.SubscribeAsync(bufferedSubscriber, true, cts.Token);
+            var unbufferedTask = mediator.SubscribeAsync(unbufferedSubscriber, false, cts.Token);
+            await Task.Delay(100); // Allow subscriptions to start
+
+            // Act - Publish notifications
+            const int messageCount = 50;
+            for (int i = 0; i < messageCount; i++)
+            {
+                mediator.Publish($"msg-{i}");
+            }
+
+            // Wait for processing
+            await Task.Delay(500);
+
+            // Assert - Both subscribers should receive all messages
+            Assert.Equal(messageCount, cache.Count); // Cache has all messages
+            Assert.Equal(messageCount, bufferedMessages.Count); // Buffered subscriber got all
+            Assert.Equal(messageCount, unbufferedMessages.Count); // Unbuffered subscriber got all
+
+            // Cleanup
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_NoSubscribers_WithBufferingTrue_AddsToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Do NOT start any subscription first
+
+            // Act - Publish notification before subscriber exists
+            mediator.Publish("early-message");
+            Assert.Equal(0, cache.Count); // No subscribers registered, so not added to cache
+
+            // Now subscribe with buffering
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
+            
+            // Publish after subscription
+            mediator.Publish("late-message");
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(1, cache.Count); // Only the message after subscription
+            Assert.Equal("late-message", subscriber.LastValue);
+
+            // Cleanup
+            cts.Cancel();
+        }
     }
 }
