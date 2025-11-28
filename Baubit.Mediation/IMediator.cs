@@ -14,7 +14,7 @@ namespace Baubit.Mediation
         /// </summary>
         /// <param name="notification">The notification object to publish.</param>
         /// <returns><c>true</c> if the notification was successfully added to the cache; otherwise <c>false</c>.</returns>
-        bool Publish(object notification);
+        bool Publish<T>(T notification);
 
         /// <summary>
         /// Publishes a request synchronously and returns the response from the registered handler.
@@ -53,9 +53,10 @@ namespace Baubit.Mediation
         /// </summary>
         /// <typeparam name="T">The type of notifications to receive.</typeparam>
         /// <param name="subscriber">The subscriber that will receive notifications.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers notifications before delivering.<br/>true by default.<br/> Set to false if the subscriber is capable of processing notifications in parallel </param>
         /// <param name="cancellationToken">A token to cancel the subscription.</param>
         /// <returns>A task that completes when the subscription ends.</returns>
-        Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, CancellationToken cancellationToken = default);
+        Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering = true, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Registers a synchronous request handler for a specific request/response pair.

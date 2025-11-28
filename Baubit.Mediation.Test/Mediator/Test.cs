@@ -125,6 +125,11 @@ namespace Baubit.Mediation.Test.Mediator
             // Arrange
             using var cache = CreateCache();
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription in background
+            var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
 
             // Act
             var result = mediator.Publish("test-notification");
@@ -386,7 +391,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start subscription in background
-            var subscribeTask = mediator.SubscribeAsync(subscriber, cts.Token);
+            var subscribeTask = mediator.SubscribeAsync(subscriber, false, cts.Token);
 
             // Publish a notification
             await Task.Delay(50); // Allow subscription to start

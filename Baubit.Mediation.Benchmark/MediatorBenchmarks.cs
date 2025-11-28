@@ -5,18 +5,11 @@ using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
 namespace Baubit.Mediation.Benchmark
 {
     /// <summary>
     /// Comprehensive benchmarks comparing Baubit.Mediation vs MediatR.
-    /// 
-    /// Benchmark scenarios:
-    /// 1. Simple request/response handler
-    /// 2. Request pipeline with behaviors (pre/post) - MediatR behaviors vs Baubit notifications
-    /// 3. Parallel request load / throughput scenario
-    /// 
     /// Reports operations per second for practical performance assessment.
     /// </summary>
     [MemoryDiagnoser]
@@ -39,7 +32,6 @@ namespace Baubit.Mediation.Benchmark
 
         // MediatR components
         private MediatR.IMediator _mediatRMediator = null!;
-        private MediatR.IMediator _mediatRMediatorWithBehaviors = null!;
 
         // Shared resources
         private ILoggerFactory _loggerFactory = null!;
@@ -50,7 +42,7 @@ namespace Baubit.Mediation.Benchmark
         private BaubitNotification _baubitNotification = null!;
         private MediatRNotification _mediatRNotification = null!;
 
-        [Params(100, 1_000)]
+        [Params(100, 1000)]
         public int OperationCount { get; set; }
 
         [GlobalSetup]
@@ -77,23 +69,13 @@ namespace Baubit.Mediation.Benchmark
 
             // Register sync handler and notification subscriber
             var baubitHandler = new BaubitSyncHandler();
-            _ = _baubitMediator.SubscribeAsync(new BaubitNotificationSubscriber(), _cts.Token);
+            _ = _baubitMediator.SubscribeAsync(new BaubitNotificationSubscriber(), false, _cts.Token);
             _baubitMediator.Subscribe<BaubitRequest, BaubitResponse>(baubitHandler, _cts.Token);
 
             // Setup MediatR without behaviors
             var services = new ServiceCollection();
             services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(MediatRHandler).Assembly));
             _mediatRMediator = services.BuildServiceProvider().GetRequiredService<MediatR.IMediator>();
-
-            // Setup MediatR with pipeline behaviors (pre/post processing)
-            var servicesWithBehaviors = new ServiceCollection();
-            servicesWithBehaviors.AddMediatR(cfg =>
-            {
-                cfg.RegisterServicesFromAssembly(typeof(MediatRHandler).Assembly);
-                cfg.AddBehavior<MediatR.IPipelineBehavior<MediatRRequest, MediatRResponse>, LoggingBehavior<MediatRRequest, MediatRResponse>>();
-                cfg.AddBehavior<MediatR.IPipelineBehavior<MediatRRequest, MediatRResponse>, ValidationBehavior<MediatRRequest, MediatRResponse>>();
-            });
-            _mediatRMediatorWithBehaviors = servicesWithBehaviors.BuildServiceProvider().GetRequiredService<MediatR.IMediator>();
         }
 
         [IterationCleanup]
@@ -110,56 +92,41 @@ namespace Baubit.Mediation.Benchmark
             _loggerFactory?.Dispose();
         }
 
-        #region Scenario 1: Simple Request/Response Handler
+        #region Aggregation Comparison
 
-        [Benchmark(Baseline = true, Description = "MediatR: Simple Request/Response")]
+        [Benchmark(Description = "MediatR: Aggregation")]
+        public async Task Notify_01_MediatR()
+        {
+            await _mediatRMediator.Publish(_mediatRNotification);
+        }
+
+        [Benchmark(Description = "Baubit: Aggregation")]
+        public bool Notify_02_Baubit()
+        {
+            return _baubitMediator.Publish(_baubitNotification);
+        }
+
+        #endregion
+
+        #region Mediation
+
+        [Benchmark(Baseline = true, Description = "MediatR: Async Mediation")]
         public async Task<MediatRResponse> Simple_01_MediatR()
         {
             return await _mediatRMediator.Send(_mediatRRequest);
         }
 
-        [Benchmark(Description = "Baubit: Simple Request/Response (Async)")]
+        [Benchmark(Description = "Baubit: Async Mediation")]
         public async Task<BaubitResponse> Simple_02_Baubit_Async()
         {
             return await _baubitMediator.PublishAsync<BaubitRequest, BaubitResponse>(_baubitRequest);
         }
 
-        [Benchmark(Description = "Baubit: Simple Request/Response (Sync)")]
-        public BaubitResponse Simple_03_Baubit_Sync()
-        {
-            return _baubitMediator.Publish<BaubitRequest, BaubitResponse>(_baubitRequest);
-        }
-
         #endregion
 
-        #region Scenario 2: Request Pipeline with Behaviors (Pre/Post Processing)
+        #region Mediation under parallel load
 
-        [Benchmark(Description = "MediatR: With Pipeline Behaviors")]
-        public async Task<MediatRResponse> Pipeline_01_MediatR_WithBehaviors()
-        {
-            return await _mediatRMediatorWithBehaviors.Send(_mediatRRequest);
-        }
-
-        [Benchmark(Description = "Baubit: Request + Notification (Pre/Post)")]
-        public async Task<BaubitResponse> Pipeline_02_Baubit_WithNotifications()
-        {
-            // Simulate pre-processing via notification
-            _baubitMediator.Publish(new BaubitNotification { Message = "Pre" });
-
-            // Execute request
-            var response = await _baubitMediator.PublishAsync<BaubitRequest, BaubitResponse>(_baubitRequest);
-
-            // Simulate post-processing via notification
-            _baubitMediator.Publish(new BaubitNotification { Message = "Post" });
-
-            return response;
-        }
-
-        #endregion
-
-        #region Scenario 3: Parallel Request Load / Throughput
-
-        [Benchmark(Description = "MediatR: Parallel Load")]
+        [Benchmark(Description = "MediatR: Async Mediation (Parallel Load)")]
         public async Task Parallel_01_MediatR()
         {
             var tasks = new List<Task<MediatRResponse>>(OperationCount);
@@ -170,7 +137,7 @@ namespace Baubit.Mediation.Benchmark
             await Task.WhenAll(tasks);
         }
 
-        [Benchmark(Description = "Baubit: Parallel Load (Async)")]
+        [Benchmark(Description = "Baubit: Async Mediation (Parallel Load)")]
         public async Task Parallel_02_Baubit_Async()
         {
             var tasks = new List<Task<BaubitResponse>>(OperationCount);
@@ -180,72 +147,6 @@ namespace Baubit.Mediation.Benchmark
             }
             await Task.WhenAll(tasks);
         }
-
-        [Benchmark(Description = "Baubit: Parallel Load (Sync via Parallel.For)")]
-        public void Parallel_03_Baubit_Sync()
-        {
-            var results = new ConcurrentBag<BaubitResponse>();
-            Parallel.For(0, OperationCount, _ =>
-            {
-                results.Add(_baubitMediator.Publish<BaubitRequest, BaubitResponse>(_baubitRequest));
-            });
-        }
-
-        #endregion
-
-        #region Notifications Comparison
-
-        [Benchmark(Description = "MediatR: Notification Publish")]
-        public async Task Notify_01_MediatR()
-        {
-            await _mediatRMediator.Publish(_mediatRNotification);
-        }
-
-        [Benchmark(Description = "Baubit: Notification Publish")]
-        public bool Notify_02_Baubit()
-        {
-            return _baubitMediator.Publish(_baubitNotification);
-        }
-
         #endregion
     }
-
-    #region MediatR Pipeline Behaviors
-
-    /// <summary>
-    /// Simulates logging behavior in MediatR pipeline.
-    /// </summary>
-    public class LoggingBehavior<TRequest, TResponse> : MediatR.IPipelineBehavior<TRequest, TResponse>
-        where TRequest : notnull
-    {
-        public async Task<TResponse> Handle(TRequest request, MediatR.RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
-        {
-            // Pre-processing: simulate logging entry
-            _ = request.GetType().Name;
-
-            var response = await next();
-
-            // Post-processing: simulate logging exit
-            _ = response?.GetType().Name;
-
-            return response;
-        }
-    }
-
-    /// <summary>
-    /// Simulates validation behavior in MediatR pipeline.
-    /// </summary>
-    public class ValidationBehavior<TRequest, TResponse> : MediatR.IPipelineBehavior<TRequest, TResponse>
-        where TRequest : notnull
-    {
-        public async Task<TResponse> Handle(TRequest request, MediatR.RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
-        {
-            // Pre-processing: simulate validation (accessing request property)
-            _ = request.GetType().Name;
-
-            return await next();
-        }
-    }
-
-    #endregion
 }
