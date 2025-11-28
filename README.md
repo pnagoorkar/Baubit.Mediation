@@ -15,13 +15,13 @@ Lightweight mediator pattern implementation with cache-backed async request/resp
 
 Baubit.Mediation significantly outperforms [MediatR](https://github.com/LuckyPennySoftware/MediatR) in comparable operations across all scenarios:
 
-| Scenario | Baubit.Mediation | MediatR | Improvement |
+| Scenario | Baubit.Mediation | MediatR | Outcome |
 |----------|------------------|---------|-------------|
-| Notification Aggregation | 109 ns / 9.2M ops/sec | 339 ns / 2.9M ops/sec | **3.1x faster** |
-| Async Mediation (Request/Response) | 111 ns / 9.0M ops/sec | 425 ns / 2.3M ops/sec | **3.9x faster** |
-| Parallel Load (100 ops) | 4,745 ns / 211K ops/sec | 7,986 ns / 125K ops/sec | **1.7x faster** |
-| Parallel Load (1000 ops) | 41,241 ns / 24.2K ops/sec | 73,250 ns / 13.7K ops/sec | **1.8x faster** |
-| Memory Allocation | 72-240 B per op | 289-361 B per op | **34-75% less** |
+| Notification Aggregation | 109 ns / 9.2M ops/sec | 339 ns / 2.9M ops/sec | Baubit is **3.1x faster** ✓ |
+| Async Mediation (Request/Response) | 111 ns / 9.0M ops/sec | 425 ns / 2.3M ops/sec | Baubit is **3.9x faster** ✓ |
+| Parallel Load (100 ops) | 4,745 ns / 211K ops/sec | 7,986 ns / 125K ops/sec | Baubit is **1.7x faster** ✓ |
+| Parallel Load (1000 ops) | 41,241 ns / 24.2K ops/sec | 73,250 ns / 13.7K ops/sec | Baubit is **1.8x faster** ✓ |
+| Memory Allocation | 72-240 B per op | 289-361 B per op | Baubit allocates **34-75% less** ✓ |
 
 For detailed benchmark results and methodology, see [Benchmark Results](Baubit.Mediation.Benchmark/results.md).
 
@@ -226,3 +226,4 @@ Baubit.Mediation is powered by [Baubit.Caching](https://github.com/pnagoorkar/Ba
 
 
 [MIT](LICENSE)
+
