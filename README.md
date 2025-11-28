@@ -13,7 +13,7 @@ Lightweight mediator pattern implementation with cache-backed async request/resp
 
 ## Performance
 
-Baubit.Mediation significantly outperforms MediatR in comparable operations across all scenarios:
+Baubit.Mediation significantly outperforms [MediatR](https://github.com/LuckyPennySoftware/MediatR) in comparable operations across all scenarios:
 
 | Scenario | Baubit.Mediation | MediatR | Improvement |
 |----------|------------------|---------|-------------|
@@ -223,5 +223,6 @@ var response = await mediator.PublishAsyncAsync<GetUserRequest, GetUserResponse>
 Baubit.Mediation is powered by [Baubit.Caching](https://github.com/pnagoorkar/Baubit.Caching/), a high-performance hybrid cache. Baubit.Caching is being extended to support distributed systems - once complete, Baubit.Mediation will natively support distributed mediation scenarios.
 
 ## License
+
 
 [MIT](LICENSE)
