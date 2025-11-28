@@ -670,11 +670,12 @@ namespace Baubit.Mediation.Test.Mediator
         public async Task Publish_NotificationWithBuffering_ConcurrentPublish()
         {
             // Arrange
+            using var cts = new CancellationTokenSource();
             using var cache = CreateCache();
+            var cacheEnumerator = cache.GetFutureAsyncEnumerator(cts.Token); // this is to keep evictions from kicking in. Tests have been failing intermittently because eviction changes cache count
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             var receivedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
             var subscriber = new CountingSubscriber(receivedMessages);
-            using var cts = new CancellationTokenSource();
 
             // Start subscription with buffering enabled
             var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
