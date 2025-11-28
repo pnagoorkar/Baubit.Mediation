@@ -118,7 +118,7 @@ Console.WriteLine(response.Name); // "User 1"
 
 ### Notification Aggregation with Caching (Buffering)
 
-When `enableBuffering` is `true` (default), notifications are persisted to the cache before delivery. This enables message replay, durability, and distributed pub/sub capabilities backed by [Baubit.Caching](https://www.nuget.org/packages/Baubit.Caching/).
+When `enableBuffering` is `true` (default), notifications are persisted to the cache before delivery. This enables message replay, durability, and distributed pub/sub capabilities backed by [Baubit.Caching](https://github.com/pnagoorkar/Baubit.Caching/).
 
 ```csharp
 // Define notification type
@@ -226,3 +226,4 @@ Baubit.Mediation is powered by [Baubit.Caching](https://github.com/pnagoorkar/Ba
 
 
 [MIT](LICENSE)
+
