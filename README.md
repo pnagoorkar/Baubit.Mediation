@@ -9,7 +9,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/pnagoorkar/Baubit.Mediation/badge.svg)](https://snyk.io/test/github/pnagoorkar/Baubit.Mediation)
 
 
-Lightweight mediator pattern implementation with cache-backed async request/response routing.
+A lightweight mediator pattern with cache-backed async request/response routing, smoothing out producer backpressure by buffering messages for consumers that process at different rates.
 
 ## Performance
 
