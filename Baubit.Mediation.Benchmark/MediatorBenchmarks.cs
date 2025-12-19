@@ -61,7 +61,7 @@ namespace Baubit.Mediation.Benchmark
         public void IterationSetup()
         {
             // Create fresh Baubit mediator and cache for each iteration
-            var store = new Store<object>(_loggerFactory);
+            var store = new Caching.InMemory.Store<object>(_loggerFactory);
             var metadata = new Metadata();
             _cache = new OrderedCache<object>(new Baubit.Caching.Configuration(), null, store, metadata, _loggerFactory);
             _baubitMediator = new Mediator(_cache, _loggerFactory);
