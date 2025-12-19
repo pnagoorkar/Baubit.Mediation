@@ -109,7 +109,7 @@ namespace Baubit.Mediation.Test.Mediator
         private static IOrderedCache<object> CreateCache()
         {
             var loggerFactory = LoggerFactory.Create(b => { });
-            var store = new Store<object>(loggerFactory);
+            var store = new Caching.InMemory.Store<object>(loggerFactory);
             var metadata = new Metadata();
             return new OrderedCache<object>(new Baubit.Caching.Configuration(), null, store, metadata, loggerFactory);
         }
