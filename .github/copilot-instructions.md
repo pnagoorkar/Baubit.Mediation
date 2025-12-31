@@ -58,8 +58,8 @@ Baubit.{ComponentName}/
 
 2. **Naming Conventions**
    - PascalCase for public members, types, and namespaces
-   - camelCase for private fields (no underscore prefix except for backing fields)
-   - Prefix interfaces with `I` (e.g., `IValidator`); abstract classes with `A` (e.g., `AValidator`)
+   - camelCase for private fields
+   - Prefix interfaces with `I` (e.g., `IValidator`)
    - Suffix async methods with `Async` (e.g., `ValidateAsync`)
    - Use meaningful, descriptive names - avoid abbreviations
 

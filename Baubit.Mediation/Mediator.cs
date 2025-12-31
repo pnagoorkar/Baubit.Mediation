@@ -22,7 +22,7 @@ namespace Baubit.Mediation
         private readonly ConcurrentDictionary<Type, IRequestHandler> _syncHandlersByType = new ConcurrentDictionary<Type, IRequestHandler>();
         private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> _subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
         private IList<IRequestHandler> _asyncHandlers = new ConcurrentList<IRequestHandler>();
-        private IOrderedCache<object> _cache;
+        private IOrderedCache<long, object> _cache;
         private ILogger<Mediator> _logger;
         private GuidV7Generator _idGenerator;
 
@@ -31,8 +31,8 @@ namespace Baubit.Mediation
         /// </summary>
         /// <param name="cache">The ordered cache for storing notifications and tracked requests.</param>
         /// <param name="loggerFactory">Factory to create loggers for diagnostics.</param>
-        public Mediator(IOrderedCache<object> cache,
-                   ILoggerFactory loggerFactory)
+        public Mediator(IOrderedCache<long, object> cache,
+                        ILoggerFactory loggerFactory)
         {
             _cache = cache;
             _logger = loggerFactory.CreateLogger<Mediator>();
