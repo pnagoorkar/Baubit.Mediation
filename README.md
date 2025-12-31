@@ -13,7 +13,6 @@
 A lightweight mediator pattern with cache-backed async request/response routing, smoothing out producer backpressure by buffering messages for consumers that process at different rates.<br/><br/>
 **DI extension: [Baubit.Mediation.DI](https://github.com/pnagoorkar/Baubit.Mediation.DI)**  
 **For persisted mediation: [Baubit.Caching.LiteDB](https://github.com/pnagoorkar/Baubit.Caching.LiteDB)**   
-**Want distributed mediation? Pass a distributed cache to the mediator. [See how to create a distributed cache](https://github.com/pnagoorkar/Baubit.Caching.DI/tree/master/Samples)**
 
 ## Performance
 
