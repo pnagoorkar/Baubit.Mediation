@@ -106,12 +106,13 @@ namespace Baubit.Mediation.Test.Mediator
 
         #endregion
 
-        private static IOrderedCache<object> CreateCache()
+        private static IOrderedCache<long, object> CreateCache()
         {
+            var configuration = new Baubit.Caching.Configuration();
             var loggerFactory = LoggerFactory.Create(b => { });
-            var store = new Caching.InMemory.Store<object>(loggerFactory);
-            var metadata = new Metadata();
-            return new OrderedCache<object>(new Baubit.Caching.Configuration(), null, store, metadata, loggerFactory);
+            var store = new Caching.Extensions.Long.InMemory.Store<object>(loggerFactory);
+            var metadata = new Caching.Extensions.Long.InMemory.Metadata(configuration,loggerFactory);
+            return new Caching.Extensions.Long.OrderedCache<object>(configuration, null, store, metadata, loggerFactory);
         }
 
         private static ILoggerFactory CreateLoggerFactory()

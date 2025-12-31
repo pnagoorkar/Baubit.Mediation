@@ -5,6 +5,7 @@ using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Baubit.Mediation.Benchmark
 {
@@ -27,7 +28,7 @@ namespace Baubit.Mediation.Benchmark
 
         // Baubit.Mediation components
         private Mediator _baubitMediator = null!;
-        private IOrderedCache<object> _cache = null!;
+        private IOrderedCache<long, object> _cache = null!;
         private CancellationTokenSource _cts = null!;
 
         // MediatR components
@@ -60,10 +61,11 @@ namespace Baubit.Mediation.Benchmark
         [IterationSetup]
         public void IterationSetup()
         {
+            var config = new Baubit.Caching.Configuration();
             // Create fresh Baubit mediator and cache for each iteration
-            var store = new Caching.InMemory.Store<object>(_loggerFactory);
-            var metadata = new Metadata();
-            _cache = new OrderedCache<object>(new Baubit.Caching.Configuration(), null, store, metadata, _loggerFactory);
+            var store = new Caching.Extensions.Long.InMemory.Store<object>(_loggerFactory);
+            var metadata = new Caching.Extensions.Long.InMemory.Metadata(config, NullLoggerFactory.Instance);
+            _cache = new Caching.Extensions.Long.OrderedCache<object>(config, null, store, metadata, _loggerFactory);
             _baubitMediator = new Mediator(_cache, _loggerFactory);
             _cts = new CancellationTokenSource();
 
