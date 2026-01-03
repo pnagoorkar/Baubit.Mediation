@@ -82,8 +82,26 @@ namespace Baubit.Mediation
         Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
                                                               CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
         
+        /// <summary>
+        /// Subscribes to notifications using a function handler.
+        /// The handler will be invoked for each notification of type <typeparamref name="TNotification"/> from the cache until the cancellation token is triggered.
+        /// </summary>
+        /// <typeparam name="TNotification">The type of notifications to receive.</typeparam>
+        /// <param name="notificationHandler">The function to handle notifications. Receives the notification and a cancellation token, returns a task that completes with a boolean result.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes with <c>true</c> when the subscription ends.</returns>
         Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Subscribes to asynchronous requests using a function handler.
+        /// The handler will process tracked requests from the cache and produce responses until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific request/response pair at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The request type to handle.</typeparam>
+        /// <typeparam name="TResponse">The response type to return.</typeparam>
+        /// <param name="asyncHandler">The function to handle requests. Receives the request and a cancellation token, returns a task that completes with the response.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes with <c>true</c> when the subscription ends, or <c>false</c> if another handler for this request type is already registered.</returns>
         Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, 
                                                        CancellationToken cancellationToken) where TRequest : IRequest<TResponse> where TResponse : IResponse;
     }
