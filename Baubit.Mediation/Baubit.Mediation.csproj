@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Baubit.Caching.Extensions" Version="2026.1.2" />
+    <PackageReference Include="Baubit.Caching.Extensions" Version="2026.1.2-prerelease" />
   </ItemGroup>
 
 </Project>
