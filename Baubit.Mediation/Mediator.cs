@@ -206,7 +206,8 @@ namespace Baubit.Mediation
         {
             await foreach (var tuple in cache.EnumerateFutureAsync<TNotification>(cancellationToken))
             {
-                await notificationHandler?.Invoke(tuple.Item2, cancellationToken);
+                var result = await notificationHandler?.Invoke(tuple.Item2, cancellationToken);
+                // Continue processing regardless of handler result
             }
             return true;
         }
