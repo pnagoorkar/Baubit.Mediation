@@ -22,6 +22,7 @@ namespace Baubit.Mediation
         private readonly ConcurrentDictionary<Type, IRequestHandler> _syncHandlersByType = new ConcurrentDictionary<Type, IRequestHandler>();
         private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> _subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
         private IList<IRequestHandler> _asyncHandlers = new ConcurrentList<IRequestHandler>();
+        private ConcurrentDictionary<Type, Delegate> asyncHandlerCallbacks = new ConcurrentDictionary<Type, Delegate>();
         private IOrderedCache<long, object> _cache;
         private ILogger<Mediator> _logger;
         private GuidV7Generator _idGenerator;
@@ -153,28 +154,6 @@ namespace Baubit.Mediation
             }
         }
 
-        #region MoveToBaubit.Mediation.Extensions
-
-        //public async IAsyncEnumerable<TType> EnumerateAsync<TType>([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-        //{
-        //    var enumerator = _cache.GetAsyncEnumerator(cancellationToken);
-        //    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
-        //    {
-        //        if (enumerator.Current.Value is TType tItem) yield return tItem;
-        //    }
-        //}
-
-        //public async IAsyncEnumerable<TType> EnumerateFutureAsync<TType>([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-        //{
-        //    var enumerator = _cache.GetFutureAsyncEnumerator(cancellationToken);
-        //    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
-        //    {
-        //        if (enumerator.Current.Value is TType tItem) yield return tItem;
-        //    }
-        //}
-
-        #endregion
-
         /// <inheritdoc/>
         public bool Subscribe<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
                                                    CancellationToken cancellationToken)
@@ -221,6 +200,36 @@ namespace Baubit.Mediation
                 _asyncHandlers.Remove(requestHandler);
             }
             return true;
+        }
+
+        public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, CancellationToken cancellationToken)
+        {
+            await foreach (var tuple in _cache.EnumerateFutureAsync<TNotification>(cancellationToken))
+            {
+                await notificationHandler?.Invoke(tuple.Item2, cancellationToken);
+            }
+            return true;
+        }
+
+        public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, CancellationToken cancellationToken)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            try
+            {
+                var handler = asyncHandlerCallbacks.GetOrAdd(asyncHandler.GetType(), asyncHandler);
+                if (handler != asyncHandler) return false; // Another handler is already subscribed for the given <TRequest, TResponse>. We can only have a single handler for a given TRequest, TResponse pair
+                await foreach (var tuple in _cache.EnumerateAsync<TrackedRequest<TRequest, TResponse>>(cancellationToken))
+                {
+                    var response = await asyncHandler(tuple.Item2.Request, cancellationToken);
+                    _cache.Add(new TrackedResponse<TResponse>(tuple.Item2.Id, response), out _);
+                }
+                return true;
+            }
+            finally
+            {
+                asyncHandlerCallbacks.TryRemove(asyncHandler.GetType(), out _);
+            }
         }
 
         private void Dispose(bool disposing)

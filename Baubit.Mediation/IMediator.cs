@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation
@@ -80,5 +81,10 @@ namespace Baubit.Mediation
         /// <returns>A task that completes when the subscription ends.</returns>
         Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
                                                               CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
+        
+        Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, CancellationToken cancellationToken);
+
+        Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, 
+                                                       CancellationToken cancellationToken) where TRequest : IRequest<TResponse> where TResponse : IResponse;
     }
 }
