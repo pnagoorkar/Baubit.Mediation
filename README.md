@@ -108,8 +108,10 @@ Console.WriteLine(response.Name); // "User 1"
 | `PublishAsync<TRequest, TResponse>(request)` | Async wrapper for sync handlers |
 | `PublishAsyncAsync<TRequest, TResponse>(request)` | Full async with cache-backed tracking |
 | `Subscribe<TRequest, TResponse>(handler, ct)` | Register sync handler |
-| `SubscribeAsync<TRequest, TResponse>(handler, ct)` | Register async handler |
-| `SubscribeAsync<T>(subscriber, enableBuffering, ct)` | Subscribe to notifications with optional caching |
+| `SubscribeAsync<TRequest, TResponse>(handler, ct)` | Register async handler (IAsyncRequestHandler) |
+| `SubscribeAsync<T>(subscriber, enableBuffering, ct)` | Subscribe to notifications with optional caching (ISubscriber) |
+| `SubscribeAsync<TNotification>(func, ct)` | Subscribe to notifications using function handler |
+| `SubscribeAsync<TRequest, TResponse>(func, ct)` | Register async handler using function |
 
 ### Handler Interfaces
 
@@ -213,6 +215,57 @@ var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(new 
 
 // Full async with cache-backed tracking (for distributed scenarios)
 var response = await mediator.PublishAsyncAsync<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
+```
+
+### Function-Based Subscriptions
+
+For scenarios where creating a full handler class is unnecessary, use function-based subscriptions:
+
+#### Notification Handler Functions
+
+```csharp
+// Subscribe to notifications using a function handler
+using var cts = new CancellationTokenSource();
+var subscribeTask = mediator.SubscribeAsync<OrderCreated>(
+    async (notification, ct) =>
+    {
+        Console.WriteLine($"Order {notification.OrderId} received");
+        await ProcessOrderAsync(notification, ct);
+        return true;
+    },
+    cts.Token
+);
+
+// Publish notifications - function handler receives them from cache
+cache.Add(new OrderCreated { OrderId = 1, Amount = 99.99m }, out _);
+cache.Add(new OrderCreated { OrderId = 2, Amount = 149.99m }, out _);
+
+// Cancel subscription when done
+cts.Cancel();
+```
+
+#### Async Request Handler Functions
+
+```csharp
+// Subscribe to requests using a function handler
+using var cts = new CancellationTokenSource();
+var subscribeTask = mediator.SubscribeAsync<GetUserRequest, GetUserResponse>(
+    async (request, ct) =>
+    {
+        var user = await database.GetUserAsync(request.UserId, ct);
+        return new GetUserResponse { Name = user.Name };
+    },
+    cts.Token
+);
+
+// Publish async request - function handler processes it
+var response = await mediator.PublishAsyncAsync<GetUserRequest, GetUserResponse>(
+    new GetUserRequest { UserId = 1 },
+    CancellationToken.None
+);
+
+// Cancel subscription when done
+cts.Cancel();
 ```
 
 ## Architecture Notes
