@@ -202,6 +202,7 @@ namespace Baubit.Mediation
             return true;
         }
 
+        /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, CancellationToken cancellationToken)
         {
             await foreach (var tuple in cache.EnumerateFutureAsync<TNotification>(cancellationToken))
@@ -212,6 +213,7 @@ namespace Baubit.Mediation
             return true;
         }
 
+        /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, CancellationToken cancellationToken)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
@@ -243,6 +245,7 @@ namespace Baubit.Mediation
                     syncHandlersByType.Clear();
                     subscribersByType.Clear();
                     asyncHandlers.Clear();
+                    asyncHandlerCallbacks.Clear();
                 }
                 disposedValue = true;
             }
