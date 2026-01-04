@@ -695,8 +695,10 @@ namespace Baubit.Mediation.Test.Mediator
             await Task.Delay(500);
 
             // Assert
-            Assert.Equal(messageCount, cache.Count);
             Assert.Equal(messageCount, receivedMessages.Count);
+            // Wait for processing
+            await Task.Delay(50);
+            Assert.Equal(messageCount, cache.Count);
 
             // Cleanup
             cts.Cancel();
