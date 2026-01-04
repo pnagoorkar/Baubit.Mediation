@@ -104,6 +104,68 @@ namespace Baubit.Mediation.Test.Mediator
             public void Dispose() { }
         }
 
+        public class CountingSubscriber : ISubscriber<string>
+        {
+            private readonly System.Collections.Concurrent.ConcurrentBag<string> _messages;
+
+            public CountingSubscriber(System.Collections.Concurrent.ConcurrentBag<string> messages)
+            {
+                _messages = messages;
+            }
+
+            public bool OnNext(string next)
+            {
+                _messages.Add(next);
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        public class SignalingCountingSubscriber : ISubscriber<string>
+        {
+            private readonly System.Collections.Concurrent.ConcurrentBag<string> _messages;
+            private readonly CountdownEvent _countdown;
+
+            public SignalingCountingSubscriber(System.Collections.Concurrent.ConcurrentBag<string> messages, CountdownEvent countdown)
+            {
+                _messages = messages;
+                _countdown = countdown;
+            }
+
+            public bool OnNext(string next)
+            {
+                _messages.Add(next);
+                _countdown.Signal();
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        public class ErrorThrowingSubscriber : ISubscriber<string>
+        {
+            public Exception? LastError { get; private set; }
+
+            public bool OnNext(string next)
+            {
+                throw new InvalidOperationException("Test error");
+            }
+
+            public bool OnError(Exception error)
+            {
+                LastError = error;
+                return true;
+            }
+
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
         #endregion
 
         private static IOrderedCache<long, object> CreateCache()
@@ -602,46 +664,6 @@ namespace Baubit.Mediation.Test.Mediator
             cts.Cancel();
         }
 
-        // Helper classes for new tests
-        public class CountingSubscriber : ISubscriber<string>
-        {
-            private readonly System.Collections.Concurrent.ConcurrentBag<string> _messages;
-
-            public CountingSubscriber(System.Collections.Concurrent.ConcurrentBag<string> messages)
-            {
-                _messages = messages;
-            }
-
-            public bool OnNext(string next)
-            {
-                _messages.Add(next);
-                return true;
-            }
-
-            public bool OnError(Exception error) => true;
-            public bool OnCompleted() => true;
-            public void Dispose() { }
-        }
-
-        public class ErrorThrowingSubscriber : ISubscriber<string>
-        {
-            public Exception? LastError { get; private set; }
-
-            public bool OnNext(string next)
-            {
-                throw new InvalidOperationException("Test error");
-            }
-
-            public bool OnError(Exception error)
-            {
-                LastError = error;
-                return true;
-            }
-
-            public bool OnCompleted() => true;
-            public void Dispose() { }
-        }
-
         [Fact]
         public async Task Publish_NotificationWithBuffering_AddsToCache()
         {
@@ -671,18 +693,19 @@ namespace Baubit.Mediation.Test.Mediator
         public async Task Publish_NotificationWithBuffering_ConcurrentPublish()
         {
             // Arrange
+            const int messageCount = 100;
             using var cts = new CancellationTokenSource();
             using var cache = CreateCache();
+            using var allMessagesReceived = new CountdownEvent(messageCount);
             var cacheEnumerator = cache.GetFutureAsyncEnumerator(cts.Token); // this is to keep evictions from kicking in. Tests have been failing intermittently because eviction changes cache count
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             var receivedMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
-            var subscriber = new CountingSubscriber(receivedMessages);
+            var subscriber = new SignalingCountingSubscriber(receivedMessages, allMessagesReceived);
 
             // Start subscription with buffering enabled
             var subscribeTask = mediator.SubscribeAsync(subscriber, true, cts.Token);
 
             // Act - Publish notifications concurrently
-            const int messageCount = 100;
             var publishTasks = new List<Task>();
             for (int i = 0; i < messageCount; i++)
             {
@@ -691,10 +714,11 @@ namespace Baubit.Mediation.Test.Mediator
             }
             await Task.WhenAll(publishTasks);
 
-            // Wait for processing
-            await Task.Delay(500);
+            // Wait for all messages to be received by the subscriber (with timeout)
+            var receivedAll = allMessagesReceived.Wait(TimeSpan.FromSeconds(10));
 
             // Assert
+            Assert.True(receivedAll, $"Timed out waiting for messages. Received {receivedMessages.Count} of {messageCount}");
             Assert.Equal(messageCount, receivedMessages.Count);
             // Wait for processing
             await Task.Delay(50);
