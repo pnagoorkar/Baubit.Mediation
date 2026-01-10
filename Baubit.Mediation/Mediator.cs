@@ -160,19 +160,16 @@ namespace Baubit.Mediation
         {
             // Use the cache-based async pattern for async handlers
             var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var enumerator = cache.GetFutureAsyncEnumerator(name, linkedCTS.Token);
+            await using var enumerator = cache.GetFutureAsyncEnumerator(name, linkedCTS.Token);
             var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
             if (!cache.Add(trackedRequest, out _)) throw new InvalidOperationException("Failed to add request to cache.");
             try
             {
-                await using (enumerator)
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
-                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
                     {
-                        if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
-                        {
-                            return trackedResponse.Response;
-                        }
+                        return trackedResponse.Response;
                     }
                 }
             }
@@ -194,18 +191,15 @@ namespace Baubit.Mediation
             var subscribers = subscribersByType.GetOrAdd(subscriberType, new ConcurrentList<(ISubscriber, bool)>());
             var subBufPair = (subscriber, enableBuffering);
             // Create enumerator BEFORE adding to subscribers to prevent race conditions
-            IAsyncEnumerator<IEntry<long, object>> enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             try
             {
                 subscribers.Add(subBufPair);
                 if (enableBuffering)
                 {
-                    await using (enumerator)
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        while (await enumerator.MoveNextAsync().ConfigureAwait(false))
-                        {
-                            if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
-                        }
+                        if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
                     }
                     return true;
                 }
@@ -278,7 +272,7 @@ namespace Baubit.Mediation
             var requestType = typeof(TRequest);
 
             // Create enumerator BEFORE adding to requestHandlersByRequestType to prevent race conditions
-            var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
+            await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
 
             // Check if any handler is already registered for this request type
             if (!requestHandlersByRequestType.TryAdd(requestType, requestHandler))
@@ -288,16 +282,13 @@ namespace Baubit.Mediation
 
             try
             {
-                await using (enumerator)
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
-                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                     {
-                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
-                        {
-                            var response = await requestHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
-                            var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
-                            cache.Add(trackedResponse, out _);
-                        }
+                        var response = await requestHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
+                        var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
+                        cache.Add(trackedResponse, out _);
                     }
                 }
             }
@@ -319,7 +310,7 @@ namespace Baubit.Mediation
             var funcBufPair = ((Delegate)notificationHandler, enableBuffering);
 
             // Create enumerator BEFORE adding to funcSubscribersByType to prevent race conditions
-            IAsyncEnumerator<IEntry<long, object>> enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
 
             try
             {
@@ -327,16 +318,13 @@ namespace Baubit.Mediation
                 
                 if (enableBuffering)
                 {
-                    await using (enumerator)
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                        if (enumerator.Current.Value is TNotification notification && notificationHandler != null)
                         {
-                            if (enumerator.Current.Value is TNotification notification && notificationHandler != null)
-                            {
-                                await notificationHandler.Invoke(notification, cancellationToken);
-                            }
-                            // Continue processing regardless of handler result
+                            await notificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false);
                         }
+                        // Continue processing regardless of handler result
                     }
                     return true;
                 }
@@ -345,7 +333,7 @@ namespace Baubit.Mediation
                     // Unbuffered - wait for cancellation (direct delivery happens in Publish)
                     var tcs = new TaskCompletionSource<bool>();
                     tcs.RegisterCancellationToken(cancellationToken);
-                    return await tcs.Task;
+                    return await tcs.Task.ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
@@ -370,7 +358,7 @@ namespace Baubit.Mediation
             var requestType = typeof(TRequest);
 
             // Create enumerator BEFORE adding to requestHandlersByRequestType to prevent race conditions
-            var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
+            await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
 
             // Check if any handler is already registered for this request type
             if (!requestHandlersByRequestType.TryAdd(requestType, asyncHandler))
@@ -380,15 +368,12 @@ namespace Baubit.Mediation
 
             try
             {
-                await using (enumerator)
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
-                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                     {
-                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
-                        {
-                            var response = await asyncHandler(trackedRequest.Request, cancellationToken);
-                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
-                        }
+                        var response = await asyncHandler(trackedRequest.Request, cancellationToken).ConfigureAwait(false);
+                        cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
                     }
                 }
                 return true;
