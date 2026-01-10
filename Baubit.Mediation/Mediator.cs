@@ -21,8 +21,7 @@ namespace Baubit.Mediation
         private bool disposedValue;
         private readonly ConcurrentDictionary<Type, IRequestHandler> syncHandlersByType = new ConcurrentDictionary<Type, IRequestHandler>();
         private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
-        private IList<IRequestHandler> asyncHandlers = new ConcurrentList<IRequestHandler>();
-        private ConcurrentDictionary<Type, Delegate> asyncHandlerCallbacks = new ConcurrentDictionary<Type, Delegate>();
+        private readonly ConcurrentDictionary<Type, object> requestHandlersByRequestType = new ConcurrentDictionary<Type, object>();
         private IOrderedCache<long, object> cache;
         private ILogger<Mediator> logger;
         private GuidV7Generator idGenerator;
@@ -62,16 +61,9 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public TResponse Publish<TRequest, TResponse>(TRequest request)
-            where TRequest : IRequest<TResponse>
-            where TResponse : IResponse
+        public Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
         {
-            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
-            if (!syncHandlersByType.TryGetValue(handlerType, out var handler))
-            {
-                throw new InvalidOperationException("No handler registered!");
-            }
-            return ((IRequestHandler<TRequest, TResponse>)handler).Handle(request);
+            return Task.Run(() => Publish(notification), cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -79,40 +71,42 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
-            if (!syncHandlersByType.TryGetValue(handlerType, out var handler))
-            {
-                throw new InvalidOperationException("No handler registered!");
-            }
-            return await ((IRequestHandler<TRequest, TResponse>)handler).HandleSyncAsync(request);
-        }
+            var requestType = typeof(TRequest);
 
-        /// <inheritdoc/>
-        public async Task<TResponse> PublishAsyncAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default)
-            where TRequest : IRequest<TResponse>
-            where TResponse : IResponse
-        {
-            var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var enumerator = cache.GetFutureAsyncEnumerator(linkedCTS.Token);
-            var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
-            if (!cache.Add(trackedRequest, out _)) throw new Exception("<TBD>");
-            try
+            // Check if there's a synchronous handler registered
+            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
+            if (syncHandlersByType.TryGetValue(handlerType, out var syncHandler))
             {
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                return await Task.Run(() => ((IRequestHandler<TRequest, TResponse>)syncHandler).Handle(request), cancellationToken).ConfigureAwait(false);
+            }
+
+            // Check if there's an async handler registered (IAsyncRequestHandler or Func handler)
+            if (requestHandlersByRequestType.ContainsKey(requestType))
+            {
+                // Use the cache-based async pattern for async handlers
+                var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var enumerator = cache.GetFutureAsyncEnumerator(linkedCTS.Token);
+                var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
+                if (!cache.Add(trackedRequest, out _)) throw new InvalidOperationException("Failed to add request to cache.");
+                try
                 {
-                    if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        return trackedResponse.Response;
+                        if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
+                        {
+                            return trackedResponse.Response;
+                        }
                     }
                 }
+                finally
+                {
+                    linkedCTS.Cancel();
+                }
+                // the assumption is that the cancellation token must have been cancelled for the flow to have reached here without returning directly from the while above
+                throw new TaskCanceledException(string.Empty, null);
             }
-            finally
-            {
-                linkedCTS.Cancel();
-            }
-            // the assumption is that the cancellation token must have been cancelled for the flow to have reached here without returning directly from the while above
-            // if the code ever reaches here, that assumption must no longer be true
-            throw new TaskCanceledException(string.Empty, null);
+
+            throw new InvalidOperationException("No handler registered!");
         }
 
         /// <inheritdoc/>
@@ -156,13 +150,30 @@ namespace Baubit.Mediation
 
         /// <inheritdoc/>
         public bool Subscribe<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
-                                                   CancellationToken cancellationToken)
+                                                   bool enableBuffering = true,
+                                                   CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
+            var requestType = typeof(TRequest);
             var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
+
+            // Check if any handler is already registered for this request type
+            if (requestHandlersByRequestType.ContainsKey(requestType))
+            {
+                return false;
+            }
+
             if (!syncHandlersByType.TryAdd(handlerType, requestHandler))
             {
+                return false;
+            }
+
+            // Register in the request type tracking dictionary
+            if (!requestHandlersByRequestType.TryAdd(requestType, requestHandler))
+            {
+                // Rollback the sync handler registration
+                syncHandlersByType.TryRemove(handlerType, out _);
                 return false;
             }
 
@@ -170,17 +181,27 @@ namespace Baubit.Mediation
             registration = cancellationToken.Register(() =>
             {
                 syncHandlersByType.TryRemove(handlerType, out _);
+                requestHandlersByRequestType.TryRemove(requestType, out _);
                 registration.Dispose();
             });
             return true;
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler, CancellationToken cancellationToken = default)
+        public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
+                                                                    bool enableBuffering = true,
+                                                                    CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            asyncHandlers.Add(requestHandler);
+            var requestType = typeof(TRequest);
+
+            // Check if any handler is already registered for this request type
+            if (!requestHandlersByRequestType.TryAdd(requestType, requestHandler))
+            {
+                return false;
+            }
+
             try
             {
                 var enumerator = cache.GetFutureAsyncEnumerator(cancellationToken);
@@ -197,13 +218,15 @@ namespace Baubit.Mediation
             }
             finally
             {
-                asyncHandlers.Remove(requestHandler);
+                requestHandlersByRequestType.TryRemove(requestType, out _);
             }
             return true;
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, CancellationToken cancellationToken)
+        public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
+                                                              bool enableBuffering = true,
+                                                              CancellationToken cancellationToken = default)
         {
             await foreach (var tuple in cache.EnumerateFutureAsync<TNotification>(cancellationToken))
             {
@@ -214,14 +237,22 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, CancellationToken cancellationToken)
+        public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
+                                                                    bool enableBuffering = true,
+                                                                    CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
+            var requestType = typeof(TRequest);
+
+            // Check if any handler is already registered for this request type
+            if (!requestHandlersByRequestType.TryAdd(requestType, asyncHandler))
+            {
+                return false;
+            }
+
             try
             {
-                var handler = asyncHandlerCallbacks.GetOrAdd(asyncHandler.GetType(), asyncHandler);
-                if (handler != asyncHandler) return false; // Another handler is already subscribed for the given <TRequest, TResponse>. We can only have a single handler for a given TRequest, TResponse pair
                 await foreach (var tuple in cache.EnumerateAsync<TrackedRequest<TRequest, TResponse>>(cancellationToken))
                 {
                     var response = await asyncHandler(tuple.Item2.Request, cancellationToken);
@@ -231,7 +262,7 @@ namespace Baubit.Mediation
             }
             finally
             {
-                asyncHandlerCallbacks.TryRemove(asyncHandler.GetType(), out _);
+                requestHandlersByRequestType.TryRemove(requestType, out _);
             }
         }
 
@@ -244,8 +275,7 @@ namespace Baubit.Mediation
                     cache.Dispose();
                     syncHandlersByType.Clear();
                     subscribersByType.Clear();
-                    asyncHandlers.Clear();
-                    asyncHandlerCallbacks.Clear();
+                    requestHandlersByRequestType.Clear();
                 }
                 disposedValue = true;
             }

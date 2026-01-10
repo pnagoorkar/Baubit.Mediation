@@ -33,13 +33,6 @@ public class BaubitSyncHandler : IRequestHandler<BaubitRequest, BaubitResponse>
     {
         return new BaubitResponse { Result = request.Value * 2 };
     }
-
-    public Task<BaubitResponse> HandleSyncAsync(BaubitRequest request, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(Handle(request));
-    }
-
-    public void Dispose() { }
 }
 
 public class BaubitNotificationSubscriber : ISubscriber<BaubitNotification>
