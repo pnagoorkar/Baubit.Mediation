@@ -1518,7 +1518,7 @@ namespace Baubit.Mediation.Test.Mediator
             var results = new System.Collections.Concurrent.ConcurrentBag<bool>();
             var ctsList = new List<CancellationTokenSource>();
             var subscriptionTasks = new List<Task<bool>>();
-            
+
             // Act - Try to register multiple async handlers concurrently for the same request type
             for (int i = 0; i < 10; i++)
             {
@@ -1647,6 +1647,242 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Assert - All notifications should be received
             Assert.Equal(100, receivedNotifications.Count);
+
+            cts.Cancel();
+        }
+
+        #endregion
+
+        #region Tests for synchronous Publish with Func subscribers
+
+        [Fact]
+        public async Task Publish_WithBufferedFuncSubscriber_AddsToCache()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Start buffered Func subscription
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                async (notification, ct) =>
+                {
+                    receivedNotifications.Add(notification);
+                    await Task.CompletedTask;
+                    return true;
+                },
+                enableBuffering: true,
+                null,
+                cts.Token
+            );
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act - Publish synchronously (not PublishAsync)
+            var result = mediator.Publish("sync-publish-buffered");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(1, cache.Count);
+            await Task.Delay(100); // Allow delivery
+            Assert.Single(receivedNotifications);
+            Assert.Contains("sync-publish-buffered", receivedNotifications);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_WithUnbufferedFuncSubscriber_DeliversDirectly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Start unbuffered Func subscription
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                async (notification, ct) =>
+                {
+                    receivedNotifications.Add(notification);
+                    await Task.CompletedTask;
+                    return true;
+                },
+                enableBuffering: false,
+                null,
+                cts.Token
+            );
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act - Publish synchronously (not PublishAsync)
+            var result = mediator.Publish("sync-publish-unbuffered");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(0, cache.Count); // Should not be in cache
+            await Task.Delay(100); // Allow async handler to complete
+            Assert.Single(receivedNotifications);
+            Assert.Contains("sync-publish-unbuffered", receivedNotifications);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_WithMixedISubscriberAndFuncSubscribers_BothReceive()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var iSubscriberMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var funcMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var iSubscriber = new CountingSubscriber(iSubscriberMessages);
+            using var cts = new CancellationTokenSource();
+
+            // Start both ISubscriber and Func subscriptions (unbuffered for direct delivery)
+            var iSubscriberTask = mediator.SubscribeAsync(iSubscriber, enableBuffering: false, null, cts.Token);
+            var funcTask = mediator.SubscribeAsync<string>(
+                async (notification, ct) =>
+                {
+                    funcMessages.Add(notification);
+                    await Task.CompletedTask;
+                    return true;
+                },
+                enableBuffering: false,
+                null,
+                cts.Token
+            );
+            await Task.Delay(50); // Allow subscriptions to start
+
+            // Act - Publish synchronously
+            var result = mediator.Publish("mixed-sync-test");
+
+            // Assert
+            Assert.True(result);
+            await Task.Delay(100); // Allow async handler to complete
+            Assert.Single(iSubscriberMessages);
+            Assert.Single(funcMessages);
+            Assert.Contains("mixed-sync-test", iSubscriberMessages);
+            Assert.Contains("mixed-sync-test", funcMessages);
+            Assert.Equal(0, cache.Count); // Both unbuffered, nothing in cache
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_WithNullFuncHandler_DoesNotThrow()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            // Start subscription with null handler
+            Func<string, CancellationToken, Task<bool>> nullHandler = null;
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                nullHandler,
+                enableBuffering: false,
+                null,
+                cts.Token
+            );
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act - Publish synchronously with null handler
+            var result = mediator.Publish("test-with-null");
+
+            // Assert - Should not throw
+            Assert.True(result);
+            Assert.Equal(0, cache.Count);
+        }
+
+        [Fact]
+        public async Task Publish_WithMultipleFuncSubscribers_AllReceive()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var messages1 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var messages2 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var messages3 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Start multiple Func subscriptions
+            var task1 = mediator.SubscribeAsync<string>(
+                async (n, ct) => { messages1.Add(n); await Task.CompletedTask; return true; },
+                enableBuffering: false, null, cts.Token);
+            var task2 = mediator.SubscribeAsync<string>(
+                async (n, ct) => { messages2.Add(n); await Task.CompletedTask; return true; },
+                enableBuffering: true, null, cts.Token);
+            var task3 = mediator.SubscribeAsync<string>(
+                async (n, ct) => { messages3.Add(n); await Task.CompletedTask; return true; },
+                enableBuffering: false, null, cts.Token);
+            await Task.Delay(50); // Allow subscriptions to start
+
+            // Act - Publish synchronously
+            var result = mediator.Publish("multi-func-test");
+
+            // Assert
+            Assert.True(result);
+            await Task.Delay(100); // Allow async handlers to complete
+            Assert.Single(messages1);
+            Assert.Single(messages2);
+            Assert.Single(messages3);
+            Assert.Contains("multi-func-test", messages1);
+            Assert.Contains("multi-func-test", messages2);
+            Assert.Contains("multi-func-test", messages3);
+
+            cts.Cancel();
+        }
+
+        #endregion
+
+        #region Tests for Subscribe method edge cases
+
+        [Fact]
+        public void Subscribe_RollbackScenario_WhenRequestTypeAlreadyRegistered()
+        {
+            // This test covers the scenario where syncHandlersByType.TryAdd succeeds
+            // but requestHandlersByRequestType.TryAdd fails, triggering a rollback.
+            // This is a race condition scenario that's hard to reproduce naturally.
+            
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestSyncHandler();
+            var handler2 = new TestSyncHandler();
+            using var cts1 = new CancellationTokenSource();
+            using var cts2 = new CancellationTokenSource();
+
+            // Register first handler
+            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts1.Token);
+            Assert.True(result1);
+
+            // Act - Try to register second handler (should fail because requestType is already registered)
+            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, true, cts2.Token);
+
+            // Assert
+            Assert.False(result2);
+        }
+
+        [Fact]
+        public async Task PublishAsync_WithUnbufferedISubscriber_DeliversDirectly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            // Start unbuffered subscription
+            var subscribeTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, null, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Act - Publish using PublishAsync (not Publish)
+            var result = await mediator.PublishAsync("async-unbuffered-test");
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(0, cache.Count); // Should not be in cache
+            Assert.Equal("async-unbuffered-test", subscriber.LastValue); // Should be delivered directly
 
             cts.Cancel();
         }
