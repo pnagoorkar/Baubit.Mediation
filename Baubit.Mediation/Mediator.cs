@@ -44,6 +44,8 @@ namespace Baubit.Mediation
         public bool Publish<T>(T notification)
         {
             var retVal = true;
+            
+            // Handle ISubscriber-based subscribers
             if (subscribersByType.TryGetValue(typeof(ISubscriber<T>), out var subscriptions))
             {
                 foreach (var subBufPair in subscriptions)
@@ -59,25 +61,73 @@ namespace Baubit.Mediation
                 }
             }
 
-            // Also handle Func-based subscribers
+            // Handle Func-based subscribers - support both buffered and unbuffered
             if (funcSubscribersByType.TryGetValue(typeof(T), out var funcSubscriptions))
             {
                 foreach (var funcBufPair in funcSubscriptions)
                 {
                     if (funcBufPair.Item2)
                     {
+                        // Buffered - add to cache for async delivery
                         retVal &= cache.Add(notification, out _);
                     }
-                    // Direct delivery not supported for Func handlers (they always use buffering)
+                    else
+                    {
+                        // Unbuffered - direct delivery (fire and forget)
+                        var handler = (Func<T, CancellationToken, Task<bool>>)funcBufPair.Item1;
+                        if (handler != null)
+                        {
+                            _ = handler.Invoke(notification, CancellationToken.None);
+                        }
+                    }
                 }
             }
             return retVal;
         }
 
         /// <inheritdoc/>
-        public Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
+        public async Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
         {
-            return Task.Run(() => Publish(notification), cancellationToken);
+            var retVal = true;
+            
+            // Handle ISubscriber-based subscribers
+            if (subscribersByType.TryGetValue(typeof(ISubscriber<T>), out var subscriptions))
+            {
+                foreach (var subBufPair in subscriptions)
+                {
+                    if (subBufPair.Item2)
+                    {
+                        retVal &= cache.Add(notification, out _);
+                    }
+                    else
+                    {
+                        retVal &= ((ISubscriber<T>)subBufPair.Item1).OnNextOrError(notification);
+                    }
+                }
+            }
+
+            // Handle Func-based subscribers - support both buffered and unbuffered
+            if (funcSubscribersByType.TryGetValue(typeof(T), out var funcSubscriptions))
+            {
+                foreach (var funcBufPair in funcSubscriptions)
+                {
+                    if (funcBufPair.Item2)
+                    {
+                        // Buffered - add to cache for async delivery
+                        retVal &= cache.Add(notification, out _);
+                    }
+                    else
+                    {
+                        // Unbuffered - direct async delivery
+                        var handler = (Func<T, CancellationToken, Task<bool>>)funcBufPair.Item1;
+                        if (handler != null)
+                        {
+                            retVal &= await handler.Invoke(notification, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+            return retVal;
         }
 
         /// <inheritdoc/>
@@ -104,11 +154,14 @@ namespace Baubit.Mediation
                 if (!cache.Add(trackedRequest, out _)) throw new InvalidOperationException("Failed to add request to cache.");
                 try
                 {
-                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    await using (enumerator)
                     {
-                        if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
+                        while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                         {
-                            return trackedResponse.Response;
+                            if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
+                            {
+                                return trackedResponse.Response;
+                            }
                         }
                     }
                 }
@@ -133,15 +186,18 @@ namespace Baubit.Mediation
             var subscribers = subscribersByType.GetOrAdd(subscriberType, new ConcurrentList<(ISubscriber, bool)>());
             var subBufPair = (subscriber, enableBuffering);
             // Create enumerator BEFORE adding to subscribers to prevent race conditions
-            var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            IAsyncEnumerator<IEntry<long, object>> enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             try
             {
                 subscribers.Add(subBufPair);
                 if (enableBuffering)
                 {
-                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    await using (enumerator)
                     {
-                        if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
+                        while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                        {
+                            if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
+                        }
                     }
                     return true;
                 }
@@ -224,13 +280,16 @@ namespace Baubit.Mediation
 
             try
             {
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                await using (enumerator)
                 {
-                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        var response = await requestHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
-                        var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
-                        cache.Add(trackedResponse, out _);
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = await requestHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
+                            var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
+                            cache.Add(trackedResponse, out _);
+                        }
                     }
                 }
             }
@@ -252,19 +311,38 @@ namespace Baubit.Mediation
             var funcBufPair = ((Delegate)notificationHandler, enableBuffering);
 
             // Create enumerator BEFORE adding to funcSubscribersByType to prevent race conditions
-            var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
+            IAsyncEnumerator<IEntry<long, object>> enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
 
             try
             {
                 funcSubscribers.Add(funcBufPair);
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                
+                if (enableBuffering)
                 {
-                    if (enumerator.Current.Value is TNotification notification && notificationHandler != null)
+                    await using (enumerator)
                     {
-                        await notificationHandler.Invoke(notification, cancellationToken);
+                        while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                        {
+                            if (enumerator.Current.Value is TNotification notification && notificationHandler != null)
+                            {
+                                await notificationHandler.Invoke(notification, cancellationToken);
+                            }
+                            // Continue processing regardless of handler result
+                        }
                     }
-                    // Continue processing regardless of handler result
+                    return true;
                 }
+                else
+                {
+                    // Unbuffered - wait for cancellation (direct delivery happens in Publish)
+                    var tcs = new TaskCompletionSource<bool>();
+                    tcs.RegisterCancellationToken(cancellationToken);
+                    return await tcs.Task;
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // expected
                 return true;
             }
             finally
@@ -294,12 +372,15 @@ namespace Baubit.Mediation
 
             try
             {
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                await using (enumerator)
                 {
-                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        var response = await asyncHandler(trackedRequest.Request, cancellationToken);
-                        cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = await asyncHandler(trackedRequest.Request, cancellationToken);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
                     }
                 }
                 return true;
