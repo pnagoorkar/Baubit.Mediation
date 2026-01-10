@@ -131,7 +131,7 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public async Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, string name = null, CancellationToken cancellationToken = default)
+        public Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, string name = null, CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
@@ -141,39 +141,47 @@ namespace Baubit.Mediation
             var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
             if (syncHandlersByType.TryGetValue(handlerType, out var syncHandler))
             {
-                return await Task.Run(() => ((IRequestHandler<TRequest, TResponse>)syncHandler).Handle(request), cancellationToken).ConfigureAwait(false);
+                // Call handler directly and wrap in completed task - no thread pool overhead
+                return Task.FromResult(((IRequestHandler<TRequest, TResponse>)syncHandler).Handle(request));
             }
 
             // Check if there's an async handler registered (IAsyncRequestHandler or Func handler)
             if (requestHandlersByRequestType.ContainsKey(requestType))
             {
-                // Use the cache-based async pattern for async handlers
-                var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var enumerator = cache.GetFutureAsyncEnumerator(name, linkedCTS.Token);
-                var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
-                if (!cache.Add(trackedRequest, out _)) throw new InvalidOperationException("Failed to add request to cache.");
-                try
-                {
-                    await using (enumerator)
-                    {
-                        while (await enumerator.MoveNextAsync().ConfigureAwait(false))
-                        {
-                            if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
-                            {
-                                return trackedResponse.Response;
-                            }
-                        }
-                    }
-                }
-                finally
-                {
-                    linkedCTS.Cancel();
-                }
-                // the assumption is that the cancellation token must have been cancelled for the flow to have reached here without returning directly from the while above
-                throw new TaskCanceledException(string.Empty, null);
+                return PublishAsyncInternal<TRequest, TResponse>(request, name, cancellationToken);
             }
 
             throw new InvalidOperationException("No handler registered!");
+        }
+
+        private async Task<TResponse> PublishAsyncInternal<TRequest, TResponse>(TRequest request, string name, CancellationToken cancellationToken)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            // Use the cache-based async pattern for async handlers
+            var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var enumerator = cache.GetFutureAsyncEnumerator(name, linkedCTS.Token);
+            var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
+            if (!cache.Add(trackedRequest, out _)) throw new InvalidOperationException("Failed to add request to cache.");
+            try
+            {
+                await using (enumerator)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
+                        {
+                            return trackedResponse.Response;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                linkedCTS.Cancel();
+            }
+            // the assumption is that the cancellation token must have been cancelled for the flow to have reached here without returning directly from the while above
+            throw new TaskCanceledException(string.Empty, null);
         }
 
         /// <inheritdoc/>
