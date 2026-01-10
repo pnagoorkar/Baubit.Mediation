@@ -21,6 +21,7 @@ namespace Baubit.Mediation
         private bool disposedValue;
         private readonly ConcurrentDictionary<Type, IRequestHandler> syncHandlersByType = new ConcurrentDictionary<Type, IRequestHandler>();
         private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
+        private readonly ConcurrentDictionary<Type, IList<(Delegate, bool)>> funcSubscribersByType = new ConcurrentDictionary<Type, IList<(Delegate, bool)>>();
         private readonly ConcurrentDictionary<Type, object> requestHandlersByRequestType = new ConcurrentDictionary<Type, object>();
         private IOrderedCache<long, object> cache;
         private ILogger<Mediator> logger;
@@ -57,6 +58,19 @@ namespace Baubit.Mediation
                     }
                 }
             }
+
+            // Also handle Func-based subscribers
+            if (funcSubscribersByType.TryGetValue(typeof(T), out var funcSubscriptions))
+            {
+                foreach (var funcBufPair in funcSubscriptions)
+                {
+                    if (funcBufPair.Item2)
+                    {
+                        retVal &= cache.Add(notification, out _);
+                    }
+                    // Direct delivery not supported for Func handlers (they always use buffering)
+                }
+            }
             return retVal;
         }
 
@@ -67,7 +81,7 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public async Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default)
+        public async Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, string name = null, CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
@@ -85,7 +99,7 @@ namespace Baubit.Mediation
             {
                 // Use the cache-based async pattern for async handlers
                 var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                var enumerator = cache.GetFutureAsyncEnumerator(linkedCTS.Token);
+                var enumerator = cache.GetFutureAsyncEnumerator(name, linkedCTS.Token);
                 var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
                 if (!cache.Add(trackedRequest, out _)) throw new InvalidOperationException("Failed to add request to cache.");
                 try
@@ -112,17 +126,19 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber,
                                                   bool enableBuffering = true,
+                                                  string name = null,
                                                   CancellationToken cancellationToken = default)
         {
             var subscriberType = typeof(ISubscriber<T>);
             var subscribers = subscribersByType.GetOrAdd(subscriberType, new ConcurrentList<(ISubscriber, bool)>());
             var subBufPair = (subscriber, enableBuffering);
+            // Create enumerator BEFORE adding to subscribers to prevent race conditions
+            var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             try
             {
                 subscribers.Add(subBufPair);
                 if (enableBuffering)
                 {
-                    var enumerator = cache.GetFutureAsyncEnumerator(cancellationToken);
                     while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
                         if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
@@ -190,11 +206,15 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
                                                                     bool enableBuffering = true,
+                                                                    string name = null,
                                                                     CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
             var requestType = typeof(TRequest);
+
+            // Create enumerator BEFORE adding to requestHandlersByRequestType to prevent race conditions
+            var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
 
             // Check if any handler is already registered for this request type
             if (!requestHandlersByRequestType.TryAdd(requestType, requestHandler))
@@ -204,13 +224,11 @@ namespace Baubit.Mediation
 
             try
             {
-                var enumerator = cache.GetFutureAsyncEnumerator(cancellationToken);
-
                 while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
                     if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                     {
-                        var response = await requestHandler.HandleAsyncAsync(trackedRequest.Request).ConfigureAwait(false);
+                        var response = await requestHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
                         var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
                         cache.Add(trackedResponse, out _);
                     }
@@ -226,24 +244,47 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
                                                               bool enableBuffering = true,
+                                                              string name = null,
                                                               CancellationToken cancellationToken = default)
         {
-            await foreach (var tuple in cache.EnumerateFutureAsync<TNotification>(cancellationToken))
+            var notificationType = typeof(TNotification);
+            var funcSubscribers = funcSubscribersByType.GetOrAdd(notificationType, new ConcurrentList<(Delegate, bool)>());
+            var funcBufPair = ((Delegate)notificationHandler, enableBuffering);
+
+            // Create enumerator BEFORE adding to funcSubscribersByType to prevent race conditions
+            var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
+
+            try
             {
-                var result = await notificationHandler?.Invoke(tuple.Item2, cancellationToken);
-                // Continue processing regardless of handler result
+                funcSubscribers.Add(funcBufPair);
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    if (enumerator.Current.Value is TNotification notification && notificationHandler != null)
+                    {
+                        await notificationHandler.Invoke(notification, cancellationToken);
+                    }
+                    // Continue processing regardless of handler result
+                }
+                return true;
             }
-            return true;
+            finally
+            {
+                funcSubscribers.Remove(funcBufPair);
+            }
         }
 
         /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
                                                                     bool enableBuffering = true,
+                                                                    string name = null,
                                                                     CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
             var requestType = typeof(TRequest);
+
+            // Create enumerator BEFORE adding to requestHandlersByRequestType to prevent race conditions
+            var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
 
             // Check if any handler is already registered for this request type
             if (!requestHandlersByRequestType.TryAdd(requestType, asyncHandler))
@@ -253,10 +294,13 @@ namespace Baubit.Mediation
 
             try
             {
-                await foreach (var tuple in cache.EnumerateAsync<TrackedRequest<TRequest, TResponse>>(cancellationToken))
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
-                    var response = await asyncHandler(tuple.Item2.Request, cancellationToken);
-                    cache.Add(new TrackedResponse<TResponse>(tuple.Item2.Id, response), out _);
+                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                    {
+                        var response = await asyncHandler(trackedRequest.Request, cancellationToken);
+                        cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                    }
                 }
                 return true;
             }
@@ -275,6 +319,7 @@ namespace Baubit.Mediation
                     cache.Dispose();
                     syncHandlersByType.Clear();
                     subscribersByType.Clear();
+                    funcSubscribersByType.Clear();
                     requestHandlersByRequestType.Clear();
                 }
                 disposedValue = true;

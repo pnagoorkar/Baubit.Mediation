@@ -36,6 +36,7 @@ namespace Baubit.Mediation.Benchmark
 
         // Shared resources
         private ILoggerFactory _loggerFactory = null!;
+        private long _nextId = 0;
 
         // Test data
         private BaubitRequest _baubitRequest = null!;
@@ -63,15 +64,16 @@ namespace Baubit.Mediation.Benchmark
         {
             var config = new Baubit.Caching.Configuration();
             // Create fresh Baubit mediator and cache for each iteration
-            var store = new Caching.Extensions.Long.InMemory.Store<object>(_loggerFactory);
-            var metadata = new Caching.Extensions.Long.InMemory.Metadata(config, NullLoggerFactory.Instance);
-            _cache = new Caching.Extensions.Long.OrderedCache<object>(config, null, store, metadata, _loggerFactory);
+            Func<long?, long?> nextIdFactory = (lastId) => Interlocked.Increment(ref _nextId);
+            var store = new Baubit.Caching.InMemory.Store<long, object>(null, null, nextIdFactory, _loggerFactory);
+            var metadata = new Baubit.Caching.InMemory.Metadata<long>(config, NullLoggerFactory.Instance);
+            _cache = new Baubit.Caching.OrderedCache<long, object>(config, null, store, metadata, _loggerFactory);
             _baubitMediator = new Mediator(_cache, _loggerFactory);
             _cts = new CancellationTokenSource();
 
             // Register sync handler and notification subscriber
             var baubitHandler = new BaubitSyncHandler();
-            _ = _baubitMediator.SubscribeAsync(new BaubitNotificationSubscriber(), false, _cts.Token);
+            _ = _baubitMediator.SubscribeAsync(new BaubitNotificationSubscriber(), false, null, _cts.Token);
             _baubitMediator.Subscribe<BaubitRequest, BaubitResponse>(baubitHandler, true, _cts.Token);
 
             // Setup MediatR without behaviors

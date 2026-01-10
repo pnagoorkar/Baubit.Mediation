@@ -19,6 +19,6 @@ namespace Baubit.Mediation
         /// </summary>
         /// <param name="request">The request payload.</param>
         /// <returns>A task that completes with the response.</returns>
-        Task<TResponse> HandleAsyncAsync(TRequest request);
+        Task<TResponse> HandleAsync(TRequest request);
     }
 }
