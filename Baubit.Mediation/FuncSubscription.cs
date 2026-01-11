@@ -19,7 +19,7 @@ namespace Baubit.Mediation
             await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
             while (await enumerator.MoveNextAsync())
             {
-                if (enumerator.Current.Value is T notification)
+                if (enumerator.Current.Value is T notification && NotificationHandler != null)
                 {
                     await NotificationHandler.Invoke(notification, cancellationToken);
                 }
@@ -29,6 +29,7 @@ namespace Baubit.Mediation
 
         protected override async Task<bool> DispatchAsync(T notification, CancellationToken cancellationToken = default)
         {
+            if (NotificationHandler == null) return true;
             return await NotificationHandler.Invoke(notification, cancellationToken);
         }
     }

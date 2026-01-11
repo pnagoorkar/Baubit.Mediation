@@ -51,13 +51,13 @@ namespace Baubit.Mediation
 
         }
 
-        public async Task<TResponse> PublishAsync(TRequest request, IOrderedCache<long, object> cache, IIdentityGenerator identityGenerator, string name = null, CancellationToken cancellationToken = default)
+        public async Task<TResponse> PublishAsync(TRequest request, IOrderedCache<long, object> cache, GuidV7Generator identityGenerator, string name = null, CancellationToken cancellationToken = default)
         {
             if (EnableBuffering)
             {
                 var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
                 var trackedRequest = new TrackedRequest<TRequest, TResponse>(identityGenerator.GetNext(), request);
-                cache.Add(request, out var entry);
+                cache.Add(trackedRequest, out var entry);
                 while (await enumerator.MoveNextAsync())
                 {
                     if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedResponse.ForRequest == trackedRequest.Id)

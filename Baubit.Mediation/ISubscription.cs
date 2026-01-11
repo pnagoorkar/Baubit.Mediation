@@ -18,6 +18,6 @@ namespace Baubit.Mediation
 
     internal interface ISubscription<TRequest, TResponse> : ISubscription where TRequest : IRequest<TResponse> where TResponse : IResponse
     {
-        Task<TResponse> PublishAsync(TRequest request, IOrderedCache<long, object> cache, IIdentityGenerator identityGenerator, string name = null, CancellationToken cancellationToken = default);
+        Task<TResponse> PublishAsync(TRequest request, IOrderedCache<long, object> cache, GuidV7Generator identityGenerator, string name = null, CancellationToken cancellationToken = default);
     }
 }
