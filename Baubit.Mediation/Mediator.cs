@@ -87,6 +87,7 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
+            if (requestHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(null, cancellationToken) : null;
             var subscription = new SyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };
@@ -108,6 +109,7 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
         {
+            if (subscriber == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             var subscription = new InterfaceSubscription<T>(subscriber, enableBuffering);
             var subscriptions = new ConcurrentList<ISubscription> { subscription };
@@ -133,6 +135,7 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
+            if (requestHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             var subscription = new AsyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };
@@ -154,6 +157,7 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
         {
+            if (notificationHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             var subscription = new FuncSubscription<TNotification>(notificationHandler, enableBuffering);
             var subscriptions = new ConcurrentList<ISubscription> { subscription };
@@ -179,6 +183,7 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
+            if (asyncHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             var subscription = new AsyncFuncSubscription<TRequest, TResponse>(asyncHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };

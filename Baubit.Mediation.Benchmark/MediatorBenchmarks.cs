@@ -74,7 +74,7 @@ namespace Baubit.Mediation.Benchmark
             // Register sync handler and notification subscriber
             var baubitHandler = new BaubitSyncHandler();
             _ = _baubitMediator.SubscribeAsync(new BaubitNotificationSubscriber(), false, _cts.Token);
-            _baubitMediator.Subscribe<BaubitRequest, BaubitResponse>(baubitHandler, true, _cts.Token);
+            _ = _baubitMediator.SubscribeAsync<BaubitRequest, BaubitResponse>(baubitHandler, true, _cts.Token);
 
             // Setup MediatR without behaviors
             var services = new ServiceCollection();

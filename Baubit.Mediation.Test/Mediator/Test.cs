@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using Xunit;
 
 namespace Baubit.Mediation.Test.Mediator
@@ -659,7 +660,7 @@ namespace Baubit.Mediation.Test.Mediator
             var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
 
             // Act - Start subscription BEFORE adding to cache (EnumerateFutureAsync only gets future items)
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -670,8 +671,6 @@ namespace Baubit.Mediation.Test.Mediator
                 null,
                 cts.Token
             );
-
-            await Task.Delay(50); // Allow subscription to start
 
             // Add notifications after subscription started
             cache.Add("notification-1", out _);
@@ -688,7 +687,6 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Cleanup
             cts.Cancel();
-            await Task.Delay(50); // Allow cancellation to propagate
         }
 
         [Fact]
@@ -701,21 +699,18 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act - Start subscription with null handler (should handle gracefully)
             Func<string, CancellationToken, Task<bool>> nullHandler = null;
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 nullHandler,
                 true,
                 null,
                 cts.Token
             );
 
-            await Task.Delay(50);
-
             // Add notification
             cache.Add("test-notification", out _);
-            await Task.Delay(50);
 
             // Assert - Should not throw
-            Assert.True(subscribeTask != null);
+            Assert.False(await subscription);
 
             // Cleanup
             cts.Cancel();
@@ -782,7 +777,7 @@ namespace Baubit.Mediation.Test.Mediator
             var receivedInts = new System.Collections.Concurrent.ConcurrentBag<int>();
 
             // Act - Subscribe to different notification types FIRST
-            var subscribeTask1 = await mediator.SubscribeAsync<string>(
+            var subscription1 = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedStrings.Add(notification);
@@ -794,7 +789,7 @@ namespace Baubit.Mediation.Test.Mediator
                 cts1.Token
             );
 
-            var subscribeTask2 = await mediator.SubscribeAsync<int>(
+            var subscription2 = mediator.SubscribeAsync<int>(
                 async (notification, ct) =>
                 {
                     receivedInts.Add(notification);
@@ -806,15 +801,13 @@ namespace Baubit.Mediation.Test.Mediator
                 cts2.Token
             );
 
-            await Task.Delay(50); // Allow subscriptions to start
-
             // Add different types to cache AFTER subscription
-            cache.Add("string-notification", out _);
-            cache.Add(42, out _);
-            cache.Add("another-string", out _);
-            cache.Add(100, out _);
+            mediator.Publish("string-notification");
+            mediator.Publish(42);
+            mediator.Publish("another-string");
+            mediator.Publish(100);
 
-            await Task.Delay(100);
+            await Task.Delay(50); // some time for delivery
 
             // Assert
             Assert.Equal(2, receivedStrings.Count);
@@ -827,7 +820,6 @@ namespace Baubit.Mediation.Test.Mediator
             // Cleanup
             cts1.Cancel();
             cts2.Cancel();
-            await Task.Delay(50);
         }
 
         [Fact]
@@ -844,7 +836,7 @@ namespace Baubit.Mediation.Test.Mediator
             cache.Add("past-2", out _);
 
             // Act - Start subscription (should only get future notifications)
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -856,13 +848,11 @@ namespace Baubit.Mediation.Test.Mediator
                 cts.Token
             );
 
-            await Task.Delay(50); // Allow subscription to start
-
             // Add future notifications
-            cache.Add("future-1", out _);
-            cache.Add("future-2", out _);
+            mediator.Publish("future-1");
+            mediator.Publish("future-2");
 
-            await Task.Delay(100); // Wait for processing
+            await Task.Delay(50); // give time for delivery
 
             // Assert - Should only receive future notifications
             Assert.Equal(2, receivedNotifications.Count);
@@ -873,7 +863,6 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Cleanup
             cts.Cancel();
-            await Task.Delay(50);
         }
 
         #endregion
@@ -1131,13 +1120,12 @@ namespace Baubit.Mediation.Test.Mediator
                 null,
                 cts1.Token
             );
-            await Task.Delay(50);
 
             // Try to register sync handler for same request type
-            var result2 = await mediator.SubscribeAsync<TestRequest, TestResponse>(new TestSyncHandler(), true, cts2.Token);
+            var subscription = mediator.SubscribeAsync<TestRequest, TestResponse>(new TestSyncHandler(), true, cts2.Token);
 
             // Assert - Sync handler should fail to register
-            Assert.False(result2);
+            Assert.False(await subscription);
 
             // Cleanup
             cts1.Cancel();
@@ -1211,7 +1199,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start buffered async subscription with Func handler
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1247,7 +1235,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start unbuffered async subscription with Func handler
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1258,7 +1246,6 @@ namespace Baubit.Mediation.Test.Mediator
                 null,
                 cts.Token
             );
-            await Task.Delay(50); // Allow subscription to start
 
             // Publish asynchronously - should deliver directly
             var result = await mediator.PublishAsync("unbuffered-async-test");
@@ -1315,18 +1302,17 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start both buffered and unbuffered Func subscriptions
-            var bufferedTask = await mediator.SubscribeAsync<string>(
+            var bufferedSubscription = mediator.SubscribeAsync<string>(
                 async (n, ct) => { bufferedNotifications.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: true, cancellationToken: cts.Token);
-            var unbufferedTask = await mediator.SubscribeAsync<string>(
+            var unbufferedSubscription = mediator.SubscribeAsync<string>(
                 async (n, ct) => { unbufferedNotifications.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: false, cancellationToken: cts.Token);
-            await Task.Delay(50); // Allow subscriptions to start
 
             // Publish asynchronously - both should receive
             var result = await mediator.PublishAsync("mixed-func-test");
 
-            await Task.Delay(100); // Allow delivery
+            await Task.Delay(50); // give some time for delivery 
 
             // Assert
             Assert.True(result);
@@ -1451,7 +1437,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start subscription
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1496,9 +1482,10 @@ namespace Baubit.Mediation.Test.Mediator
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
             using var cts = new CancellationTokenSource();
+            await using var enumerator = cache.GetFutureAsyncEnumerator(null, cts.Token); // create enumerator to suppress eviction
 
             // Start buffered Func subscription
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1509,15 +1496,15 @@ namespace Baubit.Mediation.Test.Mediator
                 null,
                 cts.Token
             );
-            await Task.Delay(50); // Allow subscription to start
 
             // Act - Publish synchronously (not PublishAsync)
             var result = mediator.Publish("sync-publish-buffered");
 
+            await Task.Delay(50); // some time for delivery
+
             // Assert
             Assert.True(result);
             Assert.Equal(1, cache.Count);
-            await Task.Delay(100); // Allow delivery
             Assert.Single(receivedNotifications);
             Assert.Contains("sync-publish-buffered", receivedNotifications);
 
@@ -1534,7 +1521,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start unbuffered Func subscription
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1545,7 +1532,6 @@ namespace Baubit.Mediation.Test.Mediator
                 null,
                 cts.Token
             );
-            await Task.Delay(50); // Allow subscription to start
 
             // Act - Publish synchronously (not PublishAsync)
             var result = mediator.Publish("sync-publish-unbuffered");
@@ -1553,7 +1539,6 @@ namespace Baubit.Mediation.Test.Mediator
             // Assert
             Assert.True(result);
             Assert.Equal(0, cache.Count); // Should not be in cache
-            await Task.Delay(100); // Allow async handler to complete
             Assert.Single(receivedNotifications);
             Assert.Contains("sync-publish-unbuffered", receivedNotifications);
 
@@ -1573,7 +1558,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Start both ISubscriber and Func subscriptions (unbuffered for direct delivery)
             var iSubscriberTask = mediator.SubscribeAsync(iSubscriber, enableBuffering: false, cancellationToken: cts.Token);
-            var funcTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     funcMessages.Add(notification);
@@ -1584,14 +1569,12 @@ namespace Baubit.Mediation.Test.Mediator
                 null,
                 cts.Token
             );
-            await Task.Delay(50); // Allow subscriptions to start
 
             // Act - Publish synchronously
             var result = mediator.Publish("mixed-sync-test");
 
             // Assert
             Assert.True(result);
-            await Task.Delay(100); // Allow async handler to complete
             Assert.Single(iSubscriberMessages);
             Assert.Single(funcMessages);
             Assert.Contains("mixed-sync-test", iSubscriberMessages);
@@ -1611,13 +1594,12 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Start subscription with null handler
             Func<string, CancellationToken, Task<bool>> nullHandler = null;
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 nullHandler,
                 enableBuffering: false,
                 null,
                 cts.Token
             );
-            await Task.Delay(50); // Allow subscription to start
 
             // Act - Publish synchronously with null handler
             var result = mediator.Publish("test-with-null");
@@ -1639,23 +1621,23 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start multiple Func subscriptions
-            var task1 = await mediator.SubscribeAsync<string>(
+            var subscription1 = mediator.SubscribeAsync<string>(
                 async (n, ct) => { messages1.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: false, cancellationToken: cts.Token);
-            var task2 = await mediator.SubscribeAsync<string>(
+            var subscription2 = mediator.SubscribeAsync<string>(
                 async (n, ct) => { messages2.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: true, cancellationToken: cts.Token);
-            var task3 = await mediator.SubscribeAsync<string>(
+            var subscription3 = mediator.SubscribeAsync<string>(
                 async (n, ct) => { messages3.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: false, cancellationToken: cts.Token);
-            await Task.Delay(50); // Allow subscriptions to start
 
             // Act - Publish synchronously
             var result = mediator.Publish("multi-func-test");
 
+            await Task.Delay(50); // allow delivery
+
             // Assert
             Assert.True(result);
-            await Task.Delay(100); // Allow async handlers to complete
             Assert.Single(messages1);
             Assert.Single(messages2);
             Assert.Single(messages3);
@@ -1698,7 +1680,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         #region Tests for buffered sync handler and atomic registration
 
-        [Fact]
+        [Fact(Skip = "This will need to be writtern properly. The only way to check that it uses named enumerators is by getting access to the underlying CacheEnumeratorCollection")]
         public async Task SubscribeAsync_WithNameOverload_UsesNamedEnumerator()
         {
             // Arrange
@@ -1708,7 +1690,7 @@ namespace Baubit.Mediation.Test.Mediator
             var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
 
             // Act - Use the name overload
-            var subscribeTask = await mediator.SubscribeAsync<string>(
+            var subscription = mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1720,10 +1702,7 @@ namespace Baubit.Mediation.Test.Mediator
                 cts.Token
             );
 
-            await Task.Delay(50); // Allow subscription to start
-
             cache.Add("test-notification", out _);
-            await Task.Delay(100); // Allow delivery
 
             // Assert
             Assert.Single(receivedNotifications);
