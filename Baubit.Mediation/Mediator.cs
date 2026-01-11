@@ -141,7 +141,6 @@ namespace Baubit.Mediation
             var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
             if (syncHandlersByType.TryGetValue(handlerType, out var syncHandler))
             {
-                // Call handler directly and wrap in completed task - no thread pool overhead
                 return Task.FromResult(((IRequestHandler<TRequest, TResponse>)syncHandler).Handle(request));
             }
 
