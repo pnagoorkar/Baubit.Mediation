@@ -225,25 +225,23 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
                     }
-                    return true;
                 }
                 else
                 {
-                    var tcs = new TaskCompletionSource<bool>();
-                    tcs.RegisterCancellationToken(cancellationToken); // subscription ends only when the caller cancels via the cancellationToken
-                    return await tcs.Task;
+                    // Unbuffered - wait for cancellation (subscription ends only when the caller cancels via the cancellationToken)
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
             {
                 // expected
-                return true;
             }
             finally
             {
 
                 subscribers.Remove(subBufPair);
             }
+            return true;
         }
 
         /// <inheritdoc/>
@@ -305,7 +303,7 @@ namespace Baubit.Mediation
             {
                 if (enableBuffering)
                 {
-                    // Buffered - create enumerator BEFORE adding handler to prevent race conditions
+                    // Buffered - use future async enumerator to process requests
                     await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
                     while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
@@ -320,9 +318,7 @@ namespace Baubit.Mediation
                 else
                 {
                     // Unbuffered - wait for cancellation (direct invocation happens in PublishAsync)
-                    var tcs = new TaskCompletionSource<bool>();
-                    tcs.RegisterCancellationToken(cancellationToken);
-                    await tcs.Task.ConfigureAwait(false);
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
@@ -363,25 +359,22 @@ namespace Baubit.Mediation
                         }
                         // Continue processing regardless of handler result
                     }
-                    return true;
                 }
                 else
                 {
                     // Unbuffered - wait for cancellation (direct delivery happens in Publish)
-                    var tcs = new TaskCompletionSource<bool>();
-                    tcs.RegisterCancellationToken(cancellationToken);
-                    return await tcs.Task.ConfigureAwait(false);
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
             {
                 // expected
-                return true;
             }
             finally
             {
                 funcSubscribers.Remove(funcBufPair);
             }
+            return true;
         }
 
         /// <inheritdoc/>
@@ -418,9 +411,7 @@ namespace Baubit.Mediation
                 else
                 {
                     // Unbuffered - wait for cancellation (direct invocation happens in PublishAsync)
-                    var tcs = new TaskCompletionSource<bool>();
-                    tcs.RegisterCancellationToken(cancellationToken);
-                    await tcs.Task.ConfigureAwait(false);
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
