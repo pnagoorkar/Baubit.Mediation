@@ -363,8 +363,8 @@ namespace Baubit.Mediation.Test.Mediator
             // Act
             mediator.Dispose();
 
-            // Assert - Handler should be cleared after dispose, SemaphoreSlim is disposed
-            await Assert.ThrowsAsync<ObjectDisposedException>(
+            // Assert - Handler should be cleared after dispose
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 () => mediator.PublishAsync<TestRequest, TestResponse>(request));
         }
 
@@ -390,10 +390,10 @@ namespace Baubit.Mediation.Test.Mediator
             // Act
             mediator.Dispose();
 
-            // Assert - Both handlers should be cleared after dispose, SemaphoreSlim is disposed
-            await Assert.ThrowsAsync<ObjectDisposedException>(
+            // Assert - Both handlers should be cleared after dispose
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 () => mediator.PublishAsync<TestRequest, TestResponse>(request1));
-            await Assert.ThrowsAsync<ObjectDisposedException>(
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 () => mediator.PublishAsync<TestRequest2, TestResponse2>(request2));
         }
 
