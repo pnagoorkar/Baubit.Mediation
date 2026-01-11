@@ -1,5 +1,6 @@
 ﻿using Baubit.Caching;
 using Baubit.Identity;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,6 +8,8 @@ namespace Baubit.Mediation
 {
     internal abstract class Subscription : ISubscription
     {
+        private bool disposedValue;
+
         public bool EnableBuffering { get; private set; }
 
         protected Subscription(bool enableBuffering)
@@ -14,9 +17,9 @@ namespace Baubit.Mediation
             EnableBuffering = enableBuffering;
         }
 
-        public async Task<bool> RunAsync(IOrderedCache<long, object> cache, string name, CancellationToken cancellationToken = default)
+        public async Task<bool> RunAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
         {
-            if (EnableBuffering) await ProcessBufferAsync(cache, name, cancellationToken);
+            if (EnableBuffering) await ProcessBufferAsync(cache, enumerator, cancellationToken);
             else
             {
                 // Await indefinitely while the cancellation token is not cancelled
@@ -25,7 +28,28 @@ namespace Baubit.Mediation
             return true;
         }
 
-        protected abstract Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, string name, CancellationToken cancellationToken = default);
+        protected abstract Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default);
+
+        protected abstract void DisposeInternal();
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    DisposeInternal();
+                }
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            System.GC.SuppressFinalize(this);
+        }
     }
 
     internal abstract class Subscription<T> : Subscription, ISubscription<T>

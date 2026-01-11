@@ -1,14 +1,16 @@
 ﻿using Baubit.Caching;
 using Baubit.Identity;
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation
 {
-    internal interface ISubscription
+    internal interface ISubscription : IDisposable
     {
         bool EnableBuffering { get; }
-        Task<bool> RunAsync(IOrderedCache<long, object> cache, string name, CancellationToken cancellationToken = default);
+        Task<bool> RunAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default);
     }
 
     internal interface ISubscription<T> : ISubscription

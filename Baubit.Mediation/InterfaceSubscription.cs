@@ -1,4 +1,5 @@
 ﻿using Baubit.Caching;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,9 +13,8 @@ namespace Baubit.Mediation
             Subscriber = subscriber;
         }
 
-        protected override async Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, string name, CancellationToken cancellationToken = default)
+        protected override async Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
         {
-            await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
             while (await enumerator.MoveNextAsync())
             {
                 if (enumerator.Current.Value is T notification)
@@ -28,6 +28,11 @@ namespace Baubit.Mediation
         protected override Task<bool> DispatchAsync(T notification, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Subscriber.OnNextOrError(notification));
+        }
+
+        protected override void DisposeInternal()
+        {
+            Subscriber = null;
         }
     }
 }
