@@ -170,7 +170,7 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
-        public void Publish_Object_AddsToCache()
+        public async Task Publish_Object_AddsToCache()
         {
             // Arrange
             using var cache = CreateCache();
@@ -190,60 +190,6 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
-        public void Subscribe_SyncHandler_RegistersHandler()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler = new TestSyncHandler();
-            using var cts = new CancellationTokenSource();
-
-            // Act
-            var result = mediator.Subscribe<TestRequest, TestResponse>(handler, true, cts.Token);
-
-            // Assert
-            Assert.True(result);
-        }
-
-        [Fact]
-        public void Subscribe_DuplicateSyncHandler_ReturnsFalse()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler1 = new TestSyncHandler();
-            var handler2 = new TestSyncHandler();
-            using var cts = new CancellationTokenSource();
-
-            // Act
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts.Token);
-            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, true, cts.Token);
-
-            // Assert
-            Assert.True(result1);
-            Assert.False(result2);
-        }
-
-        [Fact]
-        public void Subscribe_MultipleHandlerTypes_RegistersBoth()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler1 = new TestSyncHandler();
-            var handler2 = new TestSyncHandler2();
-            using var cts = new CancellationTokenSource();
-
-            // Act
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts.Token);
-            var result2 = mediator.Subscribe<TestRequest2, TestResponse2>(handler2, true, cts.Token);
-
-            // Assert - both handlers should be registered since they handle different types
-            Assert.True(result1);
-            Assert.True(result2);
-        }
-
-        [Fact]
         public async Task PublishAsync_WithMultipleHandlerTypes_RoutesToCorrectHandler()
         {
             // Arrange
@@ -252,8 +198,8 @@ namespace Baubit.Mediation.Test.Mediator
             var handler1 = new TestSyncHandler();
             var handler2 = new TestSyncHandler2();
             using var cts = new CancellationTokenSource();
-            mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts.Token);
-            mediator.Subscribe<TestRequest2, TestResponse2>(handler2, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler1, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest2, TestResponse2>(handler2, true, cts.Token);
 
             var request1 = new TestRequest { Value = "test" };
             var request2 = new TestRequest2 { Id = 5 };
@@ -275,7 +221,7 @@ namespace Baubit.Mediation.Test.Mediator
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             var handler = new TestSyncHandler();
             using var cts = new CancellationTokenSource();
-            mediator.Subscribe<TestRequest, TestResponse>(handler, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
 
             var request = new TestRequest { Value = "test" };
 
@@ -308,7 +254,7 @@ namespace Baubit.Mediation.Test.Mediator
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             var handler = new TestSyncHandler();
             using var cts = new CancellationTokenSource();
-            mediator.Subscribe<TestRequest, TestResponse>(handler, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
 
             const int requestCount = 100;
             var tasks = new List<Task<TestResponse>>(requestCount);
@@ -351,7 +297,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start subscription in background
-            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
+            var subscribeTask = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
 
             // Wait a bit then publish a request
             var request = new TestRequest { Value = "async-test" };
@@ -399,63 +345,6 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         [Fact]
-        public async Task Subscribe_CancellationUnregistersHandler()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler = new TestSyncHandler();
-            using var cts = new CancellationTokenSource();
-            mediator.Subscribe<TestRequest, TestResponse>(handler, true, cts.Token);
-
-            var request = new TestRequest { Value = "test" };
-
-            // Verify handler is registered
-            var response1 = await mediator.PublishAsync<TestRequest, TestResponse>(request);
-            Assert.NotNull(response1);
-
-            // Act - Cancel registration
-            cts.Cancel();
-
-            // Give time for cancellation to propagate
-            await Task.Delay(50);
-
-            // Assert - Handler should be unregistered
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => mediator.PublishAsync<TestRequest, TestResponse>(request));
-        }
-
-        [Fact]
-        public async Task Subscribe_AfterCancellation_CanReregister()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler1 = new TestSyncHandler();
-            var handler2 = new TestSyncHandler();
-            var cts1 = new CancellationTokenSource();
-
-            // Register first handler
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts1.Token);
-            Assert.True(result1);
-
-            // Cancel first handler
-            cts1.Cancel();
-            await Task.Delay(50);
-
-            // Act - Register a new handler for the same type
-            using var cts2 = new CancellationTokenSource();
-            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, true, cts2.Token);
-
-            // Assert - Should be able to register after cancellation
-            Assert.True(result2);
-
-            var request = new TestRequest { Value = "test" };
-            var response = await mediator.PublishAsync<TestRequest, TestResponse>(request);
-            Assert.NotNull(response);
-        }
-
-        [Fact]
         public async Task Dispose_ClearsHandlers()
         {
             // Arrange
@@ -463,7 +352,7 @@ namespace Baubit.Mediation.Test.Mediator
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             var handler = new TestSyncHandler();
             using var cts = new CancellationTokenSource();
-            mediator.Subscribe<TestRequest, TestResponse>(handler, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
 
             var request = new TestRequest { Value = "test" };
 
@@ -488,8 +377,8 @@ namespace Baubit.Mediation.Test.Mediator
             var handler1 = new TestSyncHandler();
             var handler2 = new TestSyncHandler2();
             using var cts = new CancellationTokenSource();
-            mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts.Token);
-            mediator.Subscribe<TestRequest2, TestResponse2>(handler2, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler1, true, cts.Token);
+            _ = mediator.SubscribeAsync<TestRequest2, TestResponse2>(handler2, true, cts.Token);
 
             var request1 = new TestRequest { Value = "test" };
             var request2 = new TestRequest2 { Id = 5 };
@@ -770,7 +659,7 @@ namespace Baubit.Mediation.Test.Mediator
             var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
 
             // Act - Start subscription BEFORE adding to cache (EnumerateFutureAsync only gets future items)
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -812,7 +701,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act - Start subscription with null handler (should handle gracefully)
             Func<string, CancellationToken, Task<bool>> nullHandler = null;
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 nullHandler,
                 true,
                 null,
@@ -826,7 +715,7 @@ namespace Baubit.Mediation.Test.Mediator
             await Task.Delay(50);
 
             // Assert - Should not throw
-            Assert.NotNull(subscribeTask);
+            Assert.True(subscribeTask != null);
 
             // Cleanup
             cts.Cancel();
@@ -893,7 +782,7 @@ namespace Baubit.Mediation.Test.Mediator
             var receivedInts = new System.Collections.Concurrent.ConcurrentBag<int>();
 
             // Act - Subscribe to different notification types FIRST
-            var subscribeTask1 = mediator.SubscribeAsync<string>(
+            var subscribeTask1 = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedStrings.Add(notification);
@@ -905,7 +794,7 @@ namespace Baubit.Mediation.Test.Mediator
                 cts1.Token
             );
 
-            var subscribeTask2 = mediator.SubscribeAsync<int>(
+            var subscribeTask2 = await mediator.SubscribeAsync<int>(
                 async (notification, ct) =>
                 {
                     receivedInts.Add(notification);
@@ -955,7 +844,7 @@ namespace Baubit.Mediation.Test.Mediator
             cache.Add("past-2", out _);
 
             // Act - Start subscription (should only get future notifications)
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1000,7 +889,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Subscribe with function handler
-            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(
+            var subscribeTask = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
                 async (request, ct) =>
                 {
                     await Task.Delay(1);
@@ -1037,7 +926,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts2 = new CancellationTokenSource();
 
             // Act - Subscribe first handler
-            var subscribeTask1 = mediator.SubscribeAsync<TestRequest, TestResponse>(
+            var subscribeTask1 = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
                 async (request, ct) =>
                 {
                     await Task.Delay(1);
@@ -1050,7 +939,7 @@ namespace Baubit.Mediation.Test.Mediator
             await Task.Delay(50); // Allow first subscription to register
 
             // Try to subscribe second handler (different instance but same type)
-            var subscribeTask2 = mediator.SubscribeAsync<TestRequest, TestResponse>(
+            var subscribeTask2 = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
                 async (request, ct) =>
                 {
                     await Task.Delay(1);
@@ -1082,7 +971,7 @@ namespace Baubit.Mediation.Test.Mediator
             var processedRequests = 0;
 
             // Act - Subscribe with function handler
-            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(
+            var subscribeTask = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
                 async (request, ct) =>
                 {
                     Interlocked.Increment(ref processedRequests);
@@ -1129,7 +1018,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts2 = new CancellationTokenSource();
 
             // Act - Subscribe to different request types
-            var subscribeTask1 = mediator.SubscribeAsync<TestRequest, TestResponse>(
+            var subscribeTask1 = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
                 async (request, ct) =>
                 {
                     await Task.Delay(1);
@@ -1140,7 +1029,7 @@ namespace Baubit.Mediation.Test.Mediator
                 cts1.Token
             );
 
-            var subscribeTask2 = mediator.SubscribeAsync<TestRequest2, TestResponse2>(
+            var subscribeTask2 = _ = mediator.SubscribeAsync<TestRequest2, TestResponse2>(
                 async (request, ct) =>
                 {
                     await Task.Delay(1);
@@ -1182,7 +1071,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Subscribe with function handler
-            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(
+            var subscribeTask = _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
                 async (request, ct) =>
                 {
                     await Task.Delay(10); // Simulate processing time
@@ -1202,7 +1091,6 @@ namespace Baubit.Mediation.Test.Mediator
                 var requestValue = $"request-{i}";
                 tasks.Add(mediator.PublishAsync<TestRequest, TestResponse>(
                     new TestRequest { Value = requestValue },
-                    null,
                     CancellationToken.None
                 ));
             }
@@ -1227,37 +1115,6 @@ namespace Baubit.Mediation.Test.Mediator
         #region Tests for handler registration across different handler types
 
         [Fact]
-        public async Task Subscribe_SyncHandler_BlocksAsyncHandler_ForSameRequestType()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var syncHandler = new TestSyncHandler();
-            using var cts1 = new CancellationTokenSource();
-            using var cts2 = new CancellationTokenSource();
-
-            // Act - Register sync handler first
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(syncHandler, true, cts1.Token);
-            Assert.True(result1);
-
-            // Try to register async handler for same request type
-            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(
-                new TestAsyncHandler(),
-                true,
-                null,
-                cts2.Token
-            );
-            await Task.Delay(50);
-
-            // The async subscription should return false since sync handler is registered
-            // Due to the new unified tracking
-
-            // Cleanup
-            cts1.Cancel();
-            cts2.Cancel();
-        }
-
-        [Fact]
         public async Task SubscribeAsync_AsyncHandler_BlocksSyncHandler_ForSameRequestType()
         {
             // Arrange
@@ -1277,7 +1134,7 @@ namespace Baubit.Mediation.Test.Mediator
             await Task.Delay(50);
 
             // Try to register sync handler for same request type
-            var result2 = mediator.Subscribe<TestRequest, TestResponse>(new TestSyncHandler(), true, cts2.Token);
+            var result2 = await mediator.SubscribeAsync<TestRequest, TestResponse>(new TestSyncHandler(), true, cts2.Token);
 
             // Assert - Sync handler should fail to register
             Assert.False(result2);
@@ -1354,7 +1211,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start buffered async subscription with Func handler
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1390,7 +1247,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start unbuffered async subscription with Func handler
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1458,10 +1315,10 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start both buffered and unbuffered Func subscriptions
-            var bufferedTask = mediator.SubscribeAsync<string>(
+            var bufferedTask = await mediator.SubscribeAsync<string>(
                 async (n, ct) => { bufferedNotifications.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: true, cancellationToken: cts.Token);
-            var unbufferedTask = mediator.SubscribeAsync<string>(
+            var unbufferedTask = await mediator.SubscribeAsync<string>(
                 async (n, ct) => { unbufferedNotifications.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: false, cancellationToken: cts.Token);
             await Task.Delay(50); // Allow subscriptions to start
@@ -1484,40 +1341,6 @@ namespace Baubit.Mediation.Test.Mediator
         #endregion
 
         #region Race Condition Tests
-
-        [Fact]
-        public async Task Subscribe_ConcurrentRegistration_NoRaceCondition()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handlers = new List<TestSyncHandler>();
-            var results = new System.Collections.Concurrent.ConcurrentBag<bool>();
-            
-            // Create multiple handlers
-            for (int i = 0; i < 10; i++)
-            {
-                handlers.Add(new TestSyncHandler());
-            }
-
-            // Act - Try to register all handlers concurrently for the same request type
-            var tasks = new List<Task>();
-            foreach (var handler in handlers)
-            {
-                tasks.Add(Task.Run(() =>
-                {
-                    using var cts = new CancellationTokenSource();
-                    var result = mediator.Subscribe<TestRequest, TestResponse>(handler, true, cts.Token);
-                    results.Add(result);
-                }));
-            }
-            await Task.WhenAll(tasks);
-
-            // Assert - Only one should succeed
-            Assert.Equal(10, results.Count);
-            Assert.Single(results, r => r == true);
-            Assert.Equal(9, results.Count(r => r == false));
-        }
 
         [Fact]
         public async Task SubscribeAsync_ConcurrentRegistration_NoRaceCondition()
@@ -1628,7 +1451,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start subscription
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1675,7 +1498,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start buffered Func subscription
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1711,7 +1534,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start unbuffered Func subscription
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
@@ -1750,7 +1573,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Start both ISubscriber and Func subscriptions (unbuffered for direct delivery)
             var iSubscriberTask = mediator.SubscribeAsync(iSubscriber, enableBuffering: false, cancellationToken: cts.Token);
-            var funcTask = mediator.SubscribeAsync<string>(
+            var funcTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     funcMessages.Add(notification);
@@ -1788,7 +1611,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Start subscription with null handler
             Func<string, CancellationToken, Task<bool>> nullHandler = null;
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 nullHandler,
                 enableBuffering: false,
                 null,
@@ -1816,13 +1639,13 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start multiple Func subscriptions
-            var task1 = mediator.SubscribeAsync<string>(
+            var task1 = await mediator.SubscribeAsync<string>(
                 async (n, ct) => { messages1.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: false, cancellationToken: cts.Token);
-            var task2 = mediator.SubscribeAsync<string>(
+            var task2 = await mediator.SubscribeAsync<string>(
                 async (n, ct) => { messages2.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: true, cancellationToken: cts.Token);
-            var task3 = mediator.SubscribeAsync<string>(
+            var task3 = await mediator.SubscribeAsync<string>(
                 async (n, ct) => { messages3.Add(n); await Task.CompletedTask; return true; },
                 enableBuffering: false, cancellationToken: cts.Token);
             await Task.Delay(50); // Allow subscriptions to start
@@ -1846,32 +1669,6 @@ namespace Baubit.Mediation.Test.Mediator
         #endregion
 
         #region Tests for Subscribe method edge cases
-
-        [Fact]
-        public void Subscribe_RollbackScenario_WhenRequestTypeAlreadyRegistered()
-        {
-            // This test covers the scenario where syncHandlersByType.TryAdd succeeds
-            // but requestHandlersByRequestType.TryAdd fails, triggering a rollback.
-            // This is a race condition scenario that's hard to reproduce naturally.
-            
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler1 = new TestSyncHandler();
-            var handler2 = new TestSyncHandler();
-            using var cts1 = new CancellationTokenSource();
-            using var cts2 = new CancellationTokenSource();
-
-            // Register first handler
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts1.Token);
-            Assert.True(result1);
-
-            // Act - Try to register second handler (should fail because requestType is already registered)
-            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, true, cts2.Token);
-
-            // Assert
-            Assert.False(result2);
-        }
 
         [Fact]
         public async Task PublishAsync_WithUnbufferedISubscriber_DeliversDirectly()
@@ -1902,114 +1699,6 @@ namespace Baubit.Mediation.Test.Mediator
         #region Tests for buffered sync handler and atomic registration
 
         [Fact]
-        public async Task Subscribe_BufferedSyncHandler_ProcessesRequestsThroughCache()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler = new TestSyncHandler();
-            using var cts = new CancellationTokenSource();
-
-            // Act - Register buffered sync handler
-            var result = mediator.Subscribe<TestRequest, TestResponse>(handler, enableBuffering: true, cts.Token);
-            Assert.True(result);
-            await Task.Delay(50); // Allow background task to start
-
-            // Publish request
-            var request = new TestRequest { Value = "buffered-sync-test" };
-            var response = await mediator.PublishAsync<TestRequest, TestResponse>(request);
-
-            // Assert
-            Assert.NotNull(response);
-            Assert.Equal("Handled: buffered-sync-test", response.Result);
-
-            // Cleanup
-            cts.Cancel();
-        }
-
-        [Fact]
-        public async Task Subscribe_UnbufferedSyncHandler_ProcessesRequestsDirectly()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler = new TestSyncHandler();
-            using var cts = new CancellationTokenSource();
-
-            // Act - Register unbuffered sync handler
-            var result = mediator.Subscribe<TestRequest, TestResponse>(handler, enableBuffering: false, cts.Token);
-            Assert.True(result);
-
-            // Publish request
-            var request = new TestRequest { Value = "unbuffered-sync-test" };
-            var response = await mediator.PublishAsync<TestRequest, TestResponse>(request);
-
-            // Assert
-            Assert.NotNull(response);
-            Assert.Equal("Handled: unbuffered-sync-test", response.Result);
-            Assert.Equal(0, cache.Count); // Should not be in cache for unbuffered
-
-            // Cleanup
-            cts.Cancel();
-        }
-
-        [Fact]
-        public void Subscribe_AtomicRegistration_NoConcurrentRaceCondition()
-        {
-            // Arrange - test that registration is atomic by checking consistent state
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler1 = new TestSyncHandler();
-            var handler2 = new TestSyncHandler();
-            using var cts = new CancellationTokenSource();
-
-            // Act - Register first handler
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, true, cts.Token);
-            Assert.True(result1);
-
-            // Try concurrent registration - should fail atomically
-            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, true, cts.Token);
-            Assert.False(result2);
-
-            // Assert - Only one handler is registered and system is in consistent state
-            // If it wasn't atomic, we might have partial state
-            cts.Cancel();
-        }
-
-        [Fact]
-        public async Task Subscribe_AtomicUnregistration_NoConcurrentRaceCondition()
-        {
-            // Arrange - test that unregistration is atomic
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            var handler1 = new TestSyncHandler();
-            var handler2 = new TestSyncHandler();
-            using var cts1 = new CancellationTokenSource();
-            using var cts2 = new CancellationTokenSource();
-
-            // Register first handler
-            var result1 = mediator.Subscribe<TestRequest, TestResponse>(handler1, false, cts1.Token);
-            Assert.True(result1);
-
-            // Verify first handler works
-            var request = new TestRequest { Value = "test1" };
-            var response1 = await mediator.PublishAsync<TestRequest, TestResponse>(request);
-            Assert.NotNull(response1);
-
-            // Act - Cancel first handler (atomic unregistration)
-            cts1.Cancel();
-            await Task.Delay(50); // Allow unregistration to complete
-
-            // Now register second handler (should succeed after atomic unregistration)
-            var result2 = mediator.Subscribe<TestRequest, TestResponse>(handler2, false, cts2.Token);
-            Assert.True(result2);
-
-            // Verify second handler works
-            var response2 = await mediator.PublishAsync<TestRequest, TestResponse>(request);
-            Assert.NotNull(response2);
-        }
-
-        [Fact]
         public async Task SubscribeAsync_WithNameOverload_UsesNamedEnumerator()
         {
             // Arrange
@@ -2019,7 +1708,7 @@ namespace Baubit.Mediation.Test.Mediator
             var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
 
             // Act - Use the name overload
-            var subscribeTask = mediator.SubscribeAsync<string>(
+            var subscribeTask = await mediator.SubscribeAsync<string>(
                 async (notification, ct) =>
                 {
                     receivedNotifications.Add(notification);
