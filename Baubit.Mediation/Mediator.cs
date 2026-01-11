@@ -89,8 +89,23 @@ namespace Baubit.Mediation
         {
             var subscription = new SyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };
-            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
+            var subscriptionType = typeof(ISubscription<TRequest, TResponse>);
+            var cachedSubscription = activeSubscriptions.GetOrAdd(subscriptionType, subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
+            
+            // Register callback for immediate cleanup on cancellation
+            CancellationTokenRegistration registration = default;
+            registration = cancellationToken.Register(() =>
+            {
+                // Only remove if this subscription list is still the registered one
+                activeSubscriptions.TryRemove(subscriptionType, out var removed);
+                if (removed != null && !ReferenceEquals(removed, subscriptions))
+                {
+                    // A different subscription was registered, put it back
+                    activeSubscriptions.TryAdd(subscriptionType, removed);
+                }
+                registration.Dispose();
+            });
             
             // Fire-and-forget background task to run the subscription
             _ = Task.Run(async () =>
@@ -101,7 +116,13 @@ namespace Baubit.Mediation
                 }
                 finally
                 {
-                    activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _);
+                    // Only remove if this subscription list is still the registered one
+                    activeSubscriptions.TryRemove(subscriptionType, out var removed);
+                    if (removed != null && !ReferenceEquals(removed, subscriptions))
+                    {
+                        // A different subscription was registered, put it back
+                        activeSubscriptions.TryAdd(subscriptionType, removed);
+                    }
                 }
             });
             
