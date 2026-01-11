@@ -1,6 +1,102 @@
 ﻿# Baubit.Mediation vs MediatR Benchmark Results
 
-## Environment
+---
+
+## Benchmark Run: January 10, 2026
+
+### Environment
+
+| Component | Version/Details |
+|-----------|-----------------|
+| Date | Jan 10, 2026 |
+| OS | Windows 11 (10.0.26200.7462) |
+| CPU | Intel Core Ultra 9 185H 2.50GHz, 16 physical cores (22 logical) |
+| .NET SDK | 10.0.101 |
+| Runtime | .NET 9.0.11 |
+| Baubit.Mediation | Current (this repo) |
+| Baubit.Caching | 2026.2.2-prerelease |
+| MediatR | 12.4.1 |
+| BenchmarkDotNet | 0.15.6 |
+
+### Benchmark Scenarios
+
+The benchmarks compare Baubit.Mediation against MediatR across key scenarios:
+
+1. **Notification Aggregation** - Pub/sub notification delivery
+2. **Async Mediation** - Single handler invocation (request/response)
+3. **Parallel Load** - Concurrent request throughput (100 and 1000 operations)
+
+### Results Summary
+
+#### Scenario 1: Notification Aggregation
+
+| Method | Mean | Op/s | Allocated | Ratio vs MediatR |
+|--------|------|------|-----------|------------------|
+| MediatR: Aggregation | 327-337 ns | 3.0M ops/sec | 289 B | 1.00x (baseline) |
+| Baubit: Aggregation | **107-113 ns** | **8.8-9.4M ops/sec** | **72 B** | **3.0x faster** |
+
+**Key Takeaway**: Baubit.Mediation's notification aggregation is **3.0x faster** than MediatR with **75% less memory allocation**. 
+
+**Note**: Baubit's aggregation with `enableBuffering=false` provides cache-free direct delivery. With `enableBuffering=true`, notifications persist to cache, enabling message replay and distributed pub/sub capabilities that MediatR doesn't support.
+
+#### Scenario 2: Async Mediation (Request/Response)
+
+| Method | Mean | Op/s | Allocated | Ratio vs MediatR |
+|--------|------|------|-----------|------------------|
+| MediatR: Async Mediation | 379-418 ns | 2.4-2.6M ops/sec | 361 B | 1.00x (baseline) |
+| Baubit: Async Mediation | **64-65 ns** | **15.4-15.6M ops/sec** | **168 B** | **6.0x faster** |
+
+**Key Takeaway**: Baubit.Mediation's async wrapper is **6.0x faster** than MediatR with **53% less memory allocation**.
+
+#### Scenario 3: Parallel Load (100 concurrent operations)
+
+| Method | Mean | Op/s | Allocated | Ratio vs MediatR |
+|--------|------|------|-----------|------------------|
+| MediatR: Parallel (100 ops) | 7,291 ns | 137K ops/sec | 31.4 KB | 1.00x (baseline) |
+| Baubit: Parallel (100 ops) | **2,671 ns** | **374K ops/sec** | **12.2 KB** | **2.7x faster** |
+
+#### Scenario 4: Parallel Load (1,000 concurrent operations)
+
+| Method | Mean | Op/s | Allocated | Ratio vs MediatR |
+|--------|------|------|-----------|------------------|
+| MediatR: Parallel (1000 ops) | 73,355 ns | 13.6K ops/sec | 312 KB | 1.00x (baseline) |
+| Baubit: Parallel (1000 ops) | **26,842 ns** | **37.3K ops/sec** | **120 KB** | **2.7x faster** |
+
+**Key Takeaway**: Under parallel load, Baubit.Mediation processes requests **2.7x faster** with **61% less memory**.
+
+### Raw Benchmark Output
+
+```
+BenchmarkDotNet v0.15.6, Windows 11 (10.0.26200.7462)
+Intel Core Ultra 9 185H 2.50GHz, 1 CPU, 22 logical and 16 physical cores
+.NET SDK 10.0.101
+  [Host]     : .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+  Job-VAIYHK : .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+
+InvocationCount=10000  IterationCount=10  WarmupCount=3
+
+| Method                                     | OperationCount | Mean         | Error        | StdDev       | Op/s         | Ratio  | RatioSD | Gen0    | Gen1   | Allocated | Alloc Ratio |
+|------------------------------------------- |--------------- |-------------:|-------------:|-------------:|-------------:|-------:|--------:|--------:|-------:|----------:|------------:|
+| 'MediatR: Aggregation'                     | 100            |    336.88 ns |    17.438 ns |    10.377 ns |  2,968,416.1 |   0.81 |    0.04 |       - |      - |     289 B |        0.80 |
+| 'Baubit: Aggregation'                      | 100            |    113.03 ns |     4.878 ns |     2.551 ns |  8,847,600.1 |   0.27 |    0.01 |       - |      - |      72 B |        0.20 |
+| 'MediatR: Async Mediation'                 | 100            |    417.88 ns |    29.827 ns |    17.749 ns |  2,393,006.0 |   1.00 |    0.06 |       - |      - |     361 B |        1.00 |
+| 'Baubit: Async Mediation'                  | 100            |     64.10 ns |     4.882 ns |     2.553 ns | 15,600,015.6 |   0.15 |    0.01 |       - |      - |     168 B |        0.47 |
+| 'MediatR: Async Mediation (Parallel Load)' | 100            |  7,291.20 ns |   631.264 ns |   417.542 ns |    137,151.7 |  17.47 |    1.17 |  2.5000 |      - |   31393 B |       86.96 |
+| 'Baubit: Async Mediation (Parallel Load)'  | 100            |  2,671.33 ns |   896.840 ns |   469.065 ns |    374,345.4 |   6.40 |    1.09 |  0.9000 |      - |   12192 B |       33.77 |
+|                                            |                |              |              |              |              |        |         |         |        |           |             |
+| 'MediatR: Aggregation'                     | 1000           |    326.45 ns |    10.851 ns |     5.675 ns |  3,063,232.8 |   0.86 |    0.02 |       - |      - |     289 B |        0.80 |
+| 'Baubit: Aggregation'                      | 1000           |    106.87 ns |     3.373 ns |     1.764 ns |  9,357,272.4 |   0.28 |    0.01 |       - |      - |      72 B |        0.20 |
+| 'MediatR: Async Mediation'                 | 1000           |    378.63 ns |     8.408 ns |     5.561 ns |  2,641,100.8 |   1.00 |    0.02 |       - |      - |     361 B |        1.00 |
+| 'Baubit: Async Mediation'                  | 1000           |     64.76 ns |     1.637 ns |     0.856 ns | 15,441,034.5 |   0.17 |    0.00 |       - |      - |     168 B |        0.47 |
+| 'MediatR: Async Mediation (Parallel Load)' | 1000           | 73,355.10 ns | 2,758.491 ns | 1,824.571 ns |     13,632.3 | 193.78 |    5.33 | 24.8000 | 6.2000 |  312193 B |      864.80 |
+| 'Baubit: Async Mediation (Parallel Load)'  | 1000           | 26,841.79 ns | 4,228.689 ns | 2,797.016 ns |     37,255.3 |  70.91 |    7.11 |  9.5000 | 2.9000 |  120192 B |      332.94 |
+```
+
+---
+
+## Benchmark Run: November 28, 2025
+
+### Environment
 
 | Component | Version/Details |
 |-----------|-----------------|
@@ -14,7 +110,7 @@
 | MediatR | 12.4.1 |
 | BenchmarkDotNet | 0.15.6 |
 
-## Benchmark Scenarios
+### Benchmark Scenarios
 
 The benchmarks compare Baubit.Mediation against MediatR across key scenarios:
 
@@ -22,7 +118,7 @@ The benchmarks compare Baubit.Mediation against MediatR across key scenarios:
 2. **Async Mediation** - Single handler invocation (request/response)
 3. **Parallel Load** - Concurrent request throughput (100 and 1000 operations)
 
-## Results Summary
+### Results Summary
 
 ### Scenario 1: Notification Aggregation
 
