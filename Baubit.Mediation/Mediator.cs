@@ -18,11 +18,30 @@ namespace Baubit.Mediation
     /// </summary>
     public class Mediator : IMediator, IDisposable
     {
+        /// <summary>
+        /// Tracks whether this instance has been disposed.
+        /// </summary>
         private bool disposedValue;
+
+        /// <summary>
+        /// Dictionary mapping subscription types to their active subscription lists.
+        /// Thread-safe for concurrent access.
+        /// </summary>
         private readonly ConcurrentDictionary<Type, IList<ISubscription>> activeSubscriptions = new ConcurrentDictionary<Type, IList<ISubscription>>();
 
+        /// <summary>
+        /// The ordered cache used for storing and retrieving messages.
+        /// </summary>
         private IOrderedCache<long, object> cache;
+
+        /// <summary>
+        /// Logger for diagnostic information.
+        /// </summary>
         private ILogger<Mediator> logger;
+
+        /// <summary>
+        /// Generator for creating unique GUIDv7 identifiers for tracked requests.
+        /// </summary>
         private GuidV7Generator idGenerator;
 
         /// <summary>
@@ -196,6 +215,10 @@ namespace Baubit.Mediation
             finally { cachedSubscription.Remove(subscriptions[0]); }
         }
 
+        /// <summary>
+        /// Releases unmanaged and optionally managed resources.
+        /// </summary>
+        /// <param name="disposing">True to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         private void Dispose(bool disposing)
         {
             if (!disposedValue)
