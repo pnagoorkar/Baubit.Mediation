@@ -19,6 +19,7 @@ namespace Baubit.Mediation
     public class Mediator : IMediator
     {
         private bool disposedValue;
+        private readonly object _handlerRegistrationLock = new object();
         private readonly ConcurrentDictionary<Type, (IRequestHandler, bool)> syncHandlersByType = new ConcurrentDictionary<Type, (IRequestHandler, bool)>();
         private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
         private readonly ConcurrentDictionary<Type, IList<(Delegate, bool)>> funcSubscribersByType = new ConcurrentDictionary<Type, IList<(Delegate, bool)>>();
@@ -131,19 +132,42 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, string name = null, CancellationToken cancellationToken = default)
+        public Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return PublishAsyncCore<TRequest, TResponse>(request, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, string name, CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return PublishAsyncCore<TRequest, TResponse>(request, name, cancellationToken);
+        }
+
+        private Task<TResponse> PublishAsyncCore<TRequest, TResponse>(TRequest request, string name, CancellationToken cancellationToken)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
             var requestType = typeof(TRequest);
 
-            // Check if there's a synchronous handler registered - always use direct invocation for sync handlers
+            // Check if there's a synchronous handler registered
             var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
             if (syncHandlersByType.TryGetValue(handlerType, out var syncHandlerPair))
             {
-                var (handler, _) = syncHandlerPair;
-                // Sync handlers always use direct invocation - enableBuffering stored for future observability
-                return Task.FromResult(((IRequestHandler<TRequest, TResponse>)handler).Handle(request));
+                var (handler, enableBuffering) = syncHandlerPair;
+                if (enableBuffering)
+                {
+                    // Buffered - use cache pattern for request/response flow
+                    return PublishAsyncInternal<TRequest, TResponse>(request, name, cancellationToken);
+                }
+                else
+                {
+                    // Unbuffered - direct invocation for sync handlers
+                    return Task.FromResult(((IRequestHandler<TRequest, TResponse>)handler).Handle(request));
+                }
             }
 
             // Check if there's an async handler registered (IAsyncRequestHandler or Func handler)
@@ -205,11 +229,53 @@ namespace Baubit.Mediation
             throw new TaskCanceledException(string.Empty, null);
         }
 
+        private async Task ProcessSyncHandlerRequestsAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
+                                                                                  Type requestType,
+                                                                                  Type handlerType,
+                                                                                  CancellationToken cancellationToken)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            try
+            {
+                await using var enumerator = cache.GetFutureAsyncEnumerator(null, cancellationToken);
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                    {
+                        var response = requestHandler.Handle(trackedRequest.Request);
+                        var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
+                        cache.Add(trackedResponse, out _);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // expected when cancellation is requested
+            }
+        }
+
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber,
+        public Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber,
                                                   bool enableBuffering = true,
-                                                  string name = null,
                                                   CancellationToken cancellationToken = default)
+        {
+            return SubscribeAsyncCore<T>(subscriber, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber,
+                                                  bool enableBuffering,
+                                                  string name,
+                                                  CancellationToken cancellationToken = default)
+        {
+            return SubscribeAsyncCore<T>(subscriber, enableBuffering, name, cancellationToken);
+        }
+
+        private async Task<bool> SubscribeAsyncCore<T>(ISubscriber<T> subscriber,
+                                                   bool enableBuffering,
+                                                   string name,
+                                                   CancellationToken cancellationToken)
         {
             var subscriberType = typeof(ISubscriber<T>);
             var subscribers = subscribersByType.GetOrAdd(subscriberType, new ConcurrentList<(ISubscriber, bool)>());
@@ -254,40 +320,74 @@ namespace Baubit.Mediation
             var requestType = typeof(TRequest);
             var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
 
-            // Check if any handler is already registered for this request type
-            if (requestHandlersByRequestType.ContainsKey(requestType))
+            // Atomic registration using lock to prevent race conditions
+            lock (_handlerRegistrationLock)
             {
-                return false;
+                // Check if any handler is already registered for this request type
+                if (requestHandlersByRequestType.ContainsKey(requestType))
+                {
+                    return false;
+                }
+
+                if (!syncHandlersByType.TryAdd(handlerType, (requestHandler, enableBuffering)))
+                {
+                    return false;
+                }
+
+                // Register in the request type tracking dictionary
+                if (!requestHandlersByRequestType.TryAdd(requestType, (requestHandler, enableBuffering)))
+                {
+                    // Rollback the sync handler registration atomically
+                    syncHandlersByType.TryRemove(handlerType, out _);
+                    return false;
+                }
             }
 
-            if (!syncHandlersByType.TryAdd(handlerType, (requestHandler, enableBuffering)))
+            // If buffering is enabled, start a background task to process requests from the cache
+            if (enableBuffering)
             {
-                return false;
-            }
-
-            // Register in the request type tracking dictionary
-            if (!requestHandlersByRequestType.TryAdd(requestType, (requestHandler, enableBuffering)))
-            {
-                // Rollback the sync handler registration
-                syncHandlersByType.TryRemove(handlerType, out _);
-                return false;
+                _ = ProcessSyncHandlerRequestsAsync(requestHandler, requestType, handlerType, cancellationToken);
             }
 
             CancellationTokenRegistration registration = default;
             registration = cancellationToken.Register(() =>
             {
-                syncHandlersByType.TryRemove(handlerType, out _);
-                requestHandlersByRequestType.TryRemove(requestType, out _);
+                // Atomic unregistration using lock
+                lock (_handlerRegistrationLock)
+                {
+                    syncHandlersByType.TryRemove(handlerType, out _);
+                    requestHandlersByRequestType.TryRemove(requestType, out _);
+                }
                 registration.Dispose();
             });
             return true;
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
                                                                     bool enableBuffering = true,
-                                                                    string name = null,
                                                                     CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return SubscribeAsyncCore<TRequest, TResponse>(requestHandler, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
+                                                                    bool enableBuffering,
+                                                                    string name,
+                                                                    CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return SubscribeAsyncCore<TRequest, TResponse>(requestHandler, enableBuffering, name, cancellationToken);
+        }
+
+        private async Task<bool> SubscribeAsyncCore<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
+                                                                     bool enableBuffering,
+                                                                     string name,
+                                                                     CancellationToken cancellationToken)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
@@ -333,10 +433,26 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
+        public Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
                                                               bool enableBuffering = true,
-                                                              string name = null,
                                                               CancellationToken cancellationToken = default)
+        {
+            return SubscribeAsyncCore<TNotification>(notificationHandler, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
+                                                              bool enableBuffering,
+                                                              string name,
+                                                              CancellationToken cancellationToken = default)
+        {
+            return SubscribeAsyncCore<TNotification>(notificationHandler, enableBuffering, name, cancellationToken);
+        }
+
+        private async Task<bool> SubscribeAsyncCore<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
+                                                               bool enableBuffering,
+                                                               string name,
+                                                               CancellationToken cancellationToken)
         {
             var notificationType = typeof(TNotification);
             var funcSubscribers = funcSubscribersByType.GetOrAdd(notificationType, new ConcurrentList<(Delegate, bool)>());
@@ -378,10 +494,30 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
                                                                     bool enableBuffering = true,
-                                                                    string name = null,
                                                                     CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return SubscribeAsyncCore<TRequest, TResponse>(asyncHandler, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
+                                                                    bool enableBuffering,
+                                                                    string name,
+                                                                    CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return SubscribeAsyncCore<TRequest, TResponse>(asyncHandler, enableBuffering, name, cancellationToken);
+        }
+
+        private async Task<bool> SubscribeAsyncCore<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
+                                                                     bool enableBuffering,
+                                                                     string name,
+                                                                     CancellationToken cancellationToken)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
