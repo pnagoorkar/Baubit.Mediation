@@ -230,8 +230,6 @@ namespace Baubit.Mediation
         }
 
         private async Task ProcessSyncHandlerRequestsAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
-                                                                                  Type requestType,
-                                                                                  Type handlerType,
                                                                                   CancellationToken cancellationToken)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
@@ -344,9 +342,10 @@ namespace Baubit.Mediation
             }
 
             // If buffering is enabled, start a background task to process requests from the cache
+            // Fire-and-forget is intentional: the task runs until cancellation and errors are handled internally
             if (enableBuffering)
             {
-                _ = ProcessSyncHandlerRequestsAsync(requestHandler, requestType, handlerType, cancellationToken);
+                _ = ProcessSyncHandlerRequestsAsync(requestHandler, cancellationToken);
             }
 
             CancellationTokenRegistration registration = default;
