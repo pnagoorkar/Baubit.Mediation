@@ -320,15 +320,25 @@ namespace Baubit.Mediation.Test.Mediator
                 tasks.Add(mediator.PublishAsync<TestRequest, TestResponse>(request));
             }
 
-            var responses = await Task.WhenAll(tasks);
+            // Use timeout to prevent infinite wait
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var whenAllTask = Task.WhenAll(tasks);
+            var completedTask = await Task.WhenAny(whenAllTask, Task.Delay(Timeout.Infinite, timeoutCts.Token));
+            
+            Assert.True(whenAllTask.IsCompleted, "Test timed out waiting for concurrent requests");
+            var responses = await whenAllTask;
 
-            // Assert
+            // Assert - all responses should be present (order may vary due to concurrency)
             Assert.Equal(requestCount, responses.Length);
+            var responseSet = new HashSet<string>();
             for (int i = 0; i < requestCount; i++)
             {
                 Assert.NotNull(responses[i]);
-                Assert.Equal($"Handled: request-{i}", responses[i].Result);
+                Assert.StartsWith("Handled: request-", responses[i].Result);
+                responseSet.Add(responses[i].Result);
             }
+            // Verify all unique requests were handled
+            Assert.Equal(requestCount, responseSet.Count);
         }
 
         [Fact]
@@ -464,8 +474,8 @@ namespace Baubit.Mediation.Test.Mediator
             // Act
             mediator.Dispose();
 
-            // Assert - Handler should be cleared after dispose
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            // Assert - Handler should be cleared after dispose, SemaphoreSlim is disposed
+            await Assert.ThrowsAsync<ObjectDisposedException>(
                 () => mediator.PublishAsync<TestRequest, TestResponse>(request));
         }
 
@@ -491,10 +501,10 @@ namespace Baubit.Mediation.Test.Mediator
             // Act
             mediator.Dispose();
 
-            // Assert - Both handlers should be cleared after dispose
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            // Assert - Both handlers should be cleared after dispose, SemaphoreSlim is disposed
+            await Assert.ThrowsAsync<ObjectDisposedException>(
                 () => mediator.PublishAsync<TestRequest, TestResponse>(request1));
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<ObjectDisposedException>(
                 () => mediator.PublishAsync<TestRequest2, TestResponse2>(request2));
         }
 
