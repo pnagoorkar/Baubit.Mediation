@@ -97,6 +97,19 @@ Console.WriteLine(response.Name); // "User 1"
 - Handler registration with cancellation token lifecycle
 - Thread-safe concurrent access
 
+## ⚠️ Important: Internal Implementation Classes
+
+**The `Baubit.Mediation.Internals` namespace contains internal implementation classes that are subject to change without notice.**
+
+Classes in this namespace (`Subscription`, `ISubscription`, `SyncInterfaceSubscription`, `AsyncInterfaceSubscription`, `FuncSubscription`, `AsyncFuncSubscription`, `InterfaceSubscription`) are marked as `public` only for advanced scenarios and testing purposes. **These are not part of the stable public API.**
+
+- ❌ **DO NOT** use these classes directly in your application code
+- ❌ **DO NOT** depend on their structure, methods, or behavior
+- ❌ **DO NOT** create custom implementations or derive from these classes
+- ✅ **DO** use the `IMediator` interface and its methods for all mediation needs
+
+These classes may be modified, renamed, or removed in any version update, including minor and patch releases. Using them directly will likely cause breaking changes in your application. Always interact with the mediator through the `IMediator` interface.
+
 ## API Reference
 
 ### IMediator
