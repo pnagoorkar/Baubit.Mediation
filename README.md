@@ -14,20 +14,6 @@ A lightweight mediator pattern with cache-backed async request/response routing,
 **DI extension: [Baubit.Mediation.DI](https://github.com/pnagoorkar/Baubit.Mediation.DI)**  
 **For persisted mediation: [Baubit.Caching.LiteDB](https://github.com/pnagoorkar/Baubit.Caching.LiteDB)**   
 
-## Performance
-
-Baubit.Mediation significantly outperforms [MediatR](https://github.com/LuckyPennySoftware/MediatR) in comparable operations across all scenarios:
-
-| Scenario | Baubit.Mediation | MediatR | Outcome |
-|----------|------------------|---------|-------------|
-| Notification Aggregation | 109 ns / 9.2M ops/sec | 339 ns / 2.9M ops/sec | Baubit is **3.1x faster** ✓ |
-| Async Mediation (Request/Response) | 111 ns / 9.0M ops/sec | 425 ns / 2.3M ops/sec | Baubit is **3.9x faster** ✓ |
-| Parallel Load (100 ops) | 4,745 ns / 211K ops/sec | 7,986 ns / 125K ops/sec | Baubit is **1.7x faster** ✓ |
-| Parallel Load (1000 ops) | 41,241 ns / 24.2K ops/sec | 73,250 ns / 13.7K ops/sec | Baubit is **1.8x faster** ✓ |
-| Memory Allocation | 72-240 B per op | 289-361 B per op | Baubit allocates **34-75% less** ✓ |
-
-For detailed benchmark results and methodology, see [Benchmark Results](Baubit.Mediation.Benchmark/results.md).
-
 ## Installation
 
 ```
@@ -41,12 +27,15 @@ using Baubit.Mediation;
 using Baubit.Caching;
 using Baubit.Caching.InMemory;
 using Microsoft.Extensions.Logging;
+using System.Threading;
 
 // Create dependencies
 var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
-var store = new Store<object>(loggerFactory);
-var metadata = new Metadata();
-var cache = new OrderedCache<object>(new Configuration(), null, store, metadata, loggerFactory);
+var configuration = new Baubit.Caching.Configuration();
+Func<long?, long?> nextIdFactory = (lastId) => Interlocked.Increment(ref lastId ?? 0);
+var store = new Baubit.Caching.InMemory.Store<long, object>(null, null, nextIdFactory, loggerFactory);
+var metadata = new Baubit.Caching.InMemory.Metadata<long>(configuration, loggerFactory);
+var cache = new Baubit.Caching.OrderedCache<long, object>(configuration, null, store, metadata, loggerFactory);
 
 // Create mediator
 var mediator = new Mediator(cache, loggerFactory);
@@ -69,33 +58,27 @@ public class GetUserHandler : IRequestHandler<GetUserRequest, GetUserResponse>
     {
         return new GetUserResponse { Name = $"User {request.UserId}" };
     }
-
-    public Task<GetUserResponse> HandleSyncAsync(GetUserRequest request, CancellationToken ct = default)
-    {
-        return Task.FromResult(Handle(request));
-    }
-
-    public void Dispose() { }
 }
 
 // Register handler and publish request
 using var cts = new CancellationTokenSource();
-mediator.Subscribe<GetUserRequest, GetUserResponse>(new GetUserHandler(), cts.Token);
+_ = mediator.SubscribeAsync<GetUserRequest, GetUserResponse>(new GetUserHandler(), true, cts.Token);
 
-var response = mediator.Publish<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
+var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
 Console.WriteLine(response.Name); // "User 1"
 ```
 
 ## Features
 
-- Synchronous and asynchronous request/response handling
+- Asynchronous request/response handling with optional buffering
 - Cache-backed async processing pipeline
 - Notification pub/sub with typed subscribers
-- **Notification aggregation with and without caching**
-  - **With caching (buffering)**: Notifications are persisted to cache before delivery, enabling message replay and distributed pub/sub
-  - **Without caching (direct)**: Notifications bypass cache for low-latency direct delivery to subscribers
+- **Notification and request delivery with buffering control**
+  - **Buffered mode (`enableBuffering: true`)**: Messages passes through an ordered cache before delivery. Useful when handlers are required to process events in the order of occurrence and/or the system requires durability/rewind-replay (look at [Baubit.Caching.LiteDB](https://github.com/pnagoorkar/Baubit.Caching.LiteDB) for persistence)
+  - **Unbuffered mode (`enableBuffering: false`)**: Messages delivered directly to handlers for low-latency processing
 - Handler registration with cancellation token lifecycle
 - Thread-safe concurrent access
+- Function-based handler subscriptions
 
 ## API Reference
 
@@ -103,20 +86,24 @@ Console.WriteLine(response.Name); // "User 1"
 
 | Method | Description |
 |--------|-------------|
-| `Publish(object)` | Publish a notification to subscribers |
-| `Publish<TRequest, TResponse>(request)` | Synchronous request/response |
-| `PublishAsync<TRequest, TResponse>(request)` | Async wrapper for sync handlers |
-| `PublishAsyncAsync<TRequest, TResponse>(request)` | Full async with cache-backed tracking |
-| `Subscribe<TRequest, TResponse>(handler, ct)` | Register sync handler |
-| `SubscribeAsync<TRequest, TResponse>(handler, ct)` | Register async handler (IAsyncRequestHandler) |
-| `SubscribeAsync<T>(subscriber, enableBuffering, ct)` | Subscribe to notifications with optional caching (ISubscriber) |
-| `SubscribeAsync<TNotification>(func, ct)` | Subscribe to notifications using function handler |
-| `SubscribeAsync<TRequest, TResponse>(func, ct)` | Register async handler using function |
+| `Publish<T>(notification)` | Publish a notification synchronously to subscribers |
+| `PublishAsync<T>(notification, ct)` | Publish a notification asynchronously (fire and forget) |
+| `PublishAsync<TRequest, TResponse>(request, ct)` | Publish a request and await response from registered handler |
+| `SubscribeAsync<T>(subscriber, enableBuffering, ct)` | Subscribe to notifications with `ISubscriber<T>` |
+| `SubscribeAsync<T>(subscriber, enableBuffering, name, ct)` | Subscribe to notifications with named cache enumerator |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, ct)` | Register request handler with `IRequestHandler<TRequest, TResponse>` |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, ct)` | Register request handler with named cache enumerator |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, ct)` | Register async request handler with `IAsyncRequestHandler<TRequest, TResponse>` |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, ct)` | Register async request handler with named cache enumerator |
+| `SubscribeAsync<TNotification>(func, enableBuffering, ct)` | Subscribe to notifications using function handler |
+| `SubscribeAsync<TNotification>(func, enableBuffering, name, ct)` | Subscribe to notifications using function handler with named enumerator |
+| `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, ct)` | Register async request handler using function |
+| `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, name, ct)` | Register async request handler using function with named enumerator |
 
 ### Handler Interfaces
 
-- `IRequestHandler<TRequest, TResponse>` - Synchronous handler
-- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler
+- `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest)` method
+- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest)` method
 - `ISubscriber<T>` - Notification subscriber
 
 ## Usage Examples
@@ -153,7 +140,12 @@ public class OrderNotificationSubscriber : ISubscriber<OrderCreated>
 }
 
 // Setup mediator
-var cache = new OrderedCache<object>(new Configuration(), null, store, metadata, loggerFactory);
+var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+var configuration = new Baubit.Caching.Configuration();
+Func<long?, long?> nextIdFactory = (lastId) => Interlocked.Increment(ref lastId ?? 0);
+var store = new Baubit.Caching.InMemory.Store<long, object>(null, null, nextIdFactory, loggerFactory);
+var metadata = new Baubit.Caching.InMemory.Metadata<long>(configuration, loggerFactory);
+var cache = new Baubit.Caching.OrderedCache<long, object>(configuration, null, store, metadata, loggerFactory);
 var mediator = new Mediator(cache, loggerFactory);
 using var cts = new CancellationTokenSource();
 
@@ -207,14 +199,14 @@ mediator.Publish(new OrderCreated { OrderId = 3, Amount = 199.99m });
 ### Request/Response Mediation
 
 ```csharp
-// Synchronous mediation (fastest)
-var response = mediator.Publish<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
+// Publish request asynchronously and await response
+var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(
+    new GetUserRequest { UserId = 1 }
+);
 
-// Async wrapper for sync handlers
-var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
-
-// Full async with cache-backed tracking (for distributed scenarios)
-var response = await mediator.PublishAsyncAsync<GetUserRequest, GetUserResponse>(new GetUserRequest { UserId = 1 });
+// All request handling is asynchronous
+// Buffered mode (enableBuffering: true) tracks request/response through cache
+// Unbuffered mode (enableBuffering: false) delivers directly to handler
 ```
 
 ### Function-Based Subscriptions
@@ -233,12 +225,13 @@ var subscribeTask = mediator.SubscribeAsync<OrderCreated>(
         await ProcessOrderAsync(notification, ct);
         return true;
     },
+    enableBuffering: true,
     cts.Token
 );
 
-// Publish notifications - function handler receives them from cache
-cache.Add(new OrderCreated { OrderId = 1, Amount = 99.99m }, out _);
-cache.Add(new OrderCreated { OrderId = 2, Amount = 149.99m }, out _);
+// Publish notifications
+mediator.Publish(new OrderCreated { OrderId = 1, Amount = 99.99m });
+mediator.Publish(new OrderCreated { OrderId = 2, Amount = 149.99m });
 
 // Cancel subscription when done
 cts.Cancel();
@@ -255,11 +248,12 @@ var subscribeTask = mediator.SubscribeAsync<GetUserRequest, GetUserResponse>(
         var user = await database.GetUserAsync(request.UserId, ct);
         return new GetUserResponse { Name = user.Name };
     },
+    enableBuffering: true,
     cts.Token
 );
 
 // Publish async request - function handler processes it
-var response = await mediator.PublishAsyncAsync<GetUserRequest, GetUserResponse>(
+var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(
     new GetUserRequest { UserId = 1 },
     CancellationToken.None
 );
