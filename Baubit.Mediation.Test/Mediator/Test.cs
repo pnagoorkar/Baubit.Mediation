@@ -1682,6 +1682,146 @@ namespace Baubit.Mediation.Test.Mediator
             cts.Cancel();
         }
 
+        [Fact]
+        public async Task SubscribeAsync_WithNullSyncHandler_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var result = await mediator.SubscribeAsync<TestRequest, TestResponse>(
+                (IRequestHandler<TestRequest, TestResponse>)null, 
+                true, 
+                null,
+                cts.Token);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_WithNullAsyncHandler_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var result = await mediator.SubscribeAsync<TestRequest, TestResponse>(
+                (IAsyncRequestHandler<TestRequest, TestResponse>)null, 
+                true, 
+                cts.Token);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_WithNullSubscriber_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var result = await mediator.SubscribeAsync<string>(
+                (ISubscriber<string>)null, 
+                true, 
+                cts.Token);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_SyncHandlerUnbuffered_ProcessesDirectly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestSyncHandler();
+            using var cts = new CancellationTokenSource();
+
+            // Act - Start subscription with enableBuffering = false
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, false, null, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Publish request
+            var request = new TestRequest { Value = "unbuffered-sync" };
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(request);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal("Handled: unbuffered-sync", response.Result);
+            Assert.Equal(0, cache.Count); // Should not use cache
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_AsyncHandlerUnbuffered_ProcessesDirectly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestAsyncHandler();
+            using var cts = new CancellationTokenSource();
+
+            // Act - Start subscription with enableBuffering = false
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, false, cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Publish request
+            var request = new TestRequest { Value = "unbuffered-async" };
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(request);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal("AsyncHandled: unbuffered-async", response.Result);
+            Assert.Equal(0, cache.Count); // Should not use cache
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_FuncHandlerUnbuffered_ProcessesDirectly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+            var received = "";
+
+            // Act - Start subscription with enableBuffering = false
+            _ = mediator.SubscribeAsync<TestRequest, TestResponse>(
+                async (req, ct) =>
+                {
+                    received = req.Value;
+                    await Task.CompletedTask;
+                    return new TestResponse { Result = $"Func: {req.Value}" };
+                },
+                false,
+                null,
+                cts.Token);
+            await Task.Delay(50); // Allow subscription to start
+
+            // Publish request
+            var request = new TestRequest { Value = "unbuffered-func" };
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(request);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal("Func: unbuffered-func", response.Result);
+            Assert.Equal("unbuffered-func", received);
+            Assert.Equal(0, cache.Count); // Should not use cache
+
+            cts.Cancel();
+        }
+
         #endregion
     }
 }
