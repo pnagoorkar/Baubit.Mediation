@@ -257,8 +257,30 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
             _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
 
-            // Give subscription time to start
-            await Task.Delay(100);
+            // Ensure subscription is ready by waiting for a test request to complete
+            var warmupRequest = new TestRequest { Value = "warmup" };
+            var warmupRetries = 0;
+            while (warmupRetries < 50)
+            {
+                try
+                {
+                    var warmupResponse = await Task.WhenAny(
+                        mediator.PublishAsync<TestRequest, TestResponse>(warmupRequest),
+                        Task.Delay(100)
+                    );
+                    if (warmupResponse is Task<TestResponse> responseTask && responseTask.IsCompleted)
+                    {
+                        await responseTask; // Verify it completes successfully
+                        break;
+                    }
+                }
+                catch
+                {
+                    // Subscription not ready yet
+                }
+                await Task.Delay(50);
+                warmupRetries++;
+            }
 
             const int requestCount = 100;
             var tasks = new List<Task<TestResponse>>(requestCount);
