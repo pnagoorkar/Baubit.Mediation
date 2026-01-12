@@ -54,4 +54,5 @@ TestResult.xml
 nunit-*.xml
 /.vs
 /Baubit.Mediation.Benchmark/BenchmarkDotNet.Artifacts
+BenchmarkDotNet.Artifacts/
 coverage/
