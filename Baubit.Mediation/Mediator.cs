@@ -93,23 +93,6 @@ namespace Baubit.Mediation
             if (subscription == null) throw new InvalidOperationException("No handler registered!");
             if (subscription is not ISubscription<TRequest, TResponse> requestSubscription) throw new InvalidOperationException($"Unexpected type of handler registered for {typeof(TRequest).AssemblyQualifiedName}");
 
-            // Fast path for unbuffered handlers - call directly without subscription overhead
-            if (!requestSubscription.EnableBuffering)
-            {
-                if (subscription is SyncInterfaceSubscription<TRequest, TResponse> syncSub)
-                {
-                    return syncSub.SyncHandler.Handle(request);
-                }
-                else if (subscription is AsyncInterfaceSubscription<TRequest, TResponse> asyncSub)
-                {
-                    return await asyncSub.AsyncHandler.HandleAsync(request);
-                }
-                else if (subscription is AsyncFuncSubscription<TRequest, TResponse> asyncFuncSub)
-                {
-                    return await asyncFuncSub.FuncHandler.Invoke(request, cancellationToken);
-                }
-            }
-
             return await requestSubscription.PublishAsync(request, cache, idGenerator, null, cancellationToken);
         }
 
@@ -125,34 +108,16 @@ namespace Baubit.Mediation
             where TResponse : IResponse
         {
             if (requestHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(null, cancellationToken) : null;
             var subscription = new SyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
-            
-            if (enableBuffering)
+            try
             {
-                await using var enumerator = cache.GetFutureAsyncEnumerator(null, cancellationToken);
-                try
-                {
-                    return await subscription.RunAsync(cache, enumerator, cancellationToken);
-                }
-                finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
+                return await subscription.RunAsync(cache, enumerator, cancellationToken);
             }
-            else
-            {
-                // Unbuffered: just register and wait for cancellation - no background task overhead
-                try
-                {
-                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
-                    return true;
-                }
-                catch (TaskCanceledException)
-                {
-                    return true;
-                }
-                finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
-            }
+            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
 
         /// <inheritdoc/>
@@ -191,34 +156,16 @@ namespace Baubit.Mediation
             where TResponse : IResponse
         {
             if (requestHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             var subscription = new AsyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
-            
-            if (enableBuffering)
+            try
             {
-                await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
-                try
-                {
-                    return await subscription.RunAsync(cache, enumerator, cancellationToken);
-                }
-                finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
+                return await subscription.RunAsync(cache, enumerator, cancellationToken);
             }
-            else
-            {
-                // Unbuffered: just register and wait for cancellation - no background task overhead
-                try
-                {
-                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
-                    return true;
-                }
-                catch (TaskCanceledException)
-                {
-                    return true;
-                }
-                finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
-            }
+            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
 
         /// <inheritdoc/>
@@ -257,34 +204,16 @@ namespace Baubit.Mediation
             where TResponse : IResponse
         {
             if (asyncHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
             var subscription = new AsyncFuncSubscription<TRequest, TResponse>(asyncHandler, enableBuffering);
             var subscriptions = new List<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
-            
-            if (enableBuffering)
+            try
             {
-                await using var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
-                try
-                {
-                    return await subscription.RunAsync(cache, enumerator, cancellationToken);
-                }
-                finally { cachedSubscription.Remove(subscriptions[0]); }
+                return await subscription.RunAsync(cache, enumerator, cancellationToken);
             }
-            else
-            {
-                // Unbuffered: just register and wait for cancellation - no background task overhead
-                try
-                {
-                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
-                    return true;
-                }
-                catch (TaskCanceledException)
-                {
-                    return true;
-                }
-                finally { cachedSubscription.Remove(subscriptions[0]); }
-            }
+            finally { cachedSubscription.Remove(subscriptions[0]); }
         }
 
         /// <summary>

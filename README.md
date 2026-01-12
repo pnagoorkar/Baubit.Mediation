@@ -28,38 +28,6 @@ Baubit.Mediation significantly outperforms [MediatR](https://github.com/LuckyPen
 
 For detailed benchmark results and methodology, see [Benchmark Results](Baubit.Mediation.Benchmark/results.md).
 
-## Changes from Master (This Branch)
-
-This branch refactors the `Mediator` implementation to a subscription-based architecture:
-
-**API Changes:**
-- Removed synchronous `Subscribe` methods - all registration is now fully async via `SubscribeAsync`
-- Removed `PublishAsync` overload with `name` parameter for request/response pairs
-- Added `IMediator` disposal support to properly cleanup resources
-
-**Architecture:**
-- Replaced lock-based coordination (`SemaphoreSlim`, multiple `ConcurrentDictionary` instances) with subscription pattern
-- Message routing delegated to specialized subscription classes in `Baubit.Mediation.Internals` namespace
-- Simplified registration logic - single `ConcurrentDictionary<Type, IList<ISubscription>>` with reference equality checks
-
-**Performance:**
-- Optimized unbuffered (direct) handler path - handlers called directly without subscription overhead
-- Current: 297-312ns per operation vs 109-111ns baseline (2.8x overhead)
-- Significant improvement over initial subscription implementation (590ns)
-- Remaining overhead due to subscription infrastructure for buffered scenarios
-
-**Testing:**
-- Added 25 new tests covering subscription implementations and edge cases
-- 73 total tests, all passing
-- 97.32% line coverage, 82.65% branch coverage
-
-**Code Quality:**
-- Comprehensive XML documentation on all classes including internal members
-- Fixed critical bug in `Subscription.PublishAsync` (was adding `request` instead of `trackedRequest`)
-- Improved null safety and error handling
-
-**Migration Note:** Classes in `Baubit.Mediation.Internals` namespace are implementation details and may change without notice. Use only the `IMediator` interface.
-
 ## Installation
 
 ```
