@@ -23,7 +23,6 @@
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="." />
     <None Include="../LICENSE" Pack="true" PackagePath="." />
-    <InternalsVisibleTo Include="Baubit.Mediation.Test"/>
   </ItemGroup>
 
   <ItemGroup>
