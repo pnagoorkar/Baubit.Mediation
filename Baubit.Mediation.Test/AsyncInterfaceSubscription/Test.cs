@@ -10,7 +10,7 @@ using Xunit;
 namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
 {
     /// <summary>
-    /// Tests for <see cref="Baubit.Mediation.AsyncInterfaceSubscription{TRequest, TResponse}"/>
+    /// Tests for <see cref="Baubit.Mediation.Internals.AsyncInterfaceSubscription{TRequest, TResponse}"/>
     /// </summary>
     public class Test
     {
@@ -55,7 +55,7 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
             var handler = new TestAsyncHandler();
 
             // Act
-            var subscription = new Baubit.Mediation.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
 
             // Assert
             Assert.NotNull(subscription);
@@ -68,7 +68,7 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
         {
             // Arrange
             var handler = new TestAsyncHandler();
-            var subscription = new Baubit.Mediation.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, false);
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, false);
             var request = new TestRequest { Value = "direct" };
 
             // Act
@@ -89,7 +89,7 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
         {
             // Arrange
             var handler = new TestAsyncHandler();
-            var subscription = new Baubit.Mediation.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
 
             // Act
             subscription.Dispose();

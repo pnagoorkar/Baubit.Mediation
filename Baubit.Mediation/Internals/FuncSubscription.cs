@@ -4,14 +4,19 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Baubit.Mediation
+namespace Baubit.Mediation.Internals
 {
     /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
     /// Subscription implementation that wraps a function handler for notifications of type <typeparamref name="T"/>.
     /// Handles notifications by invoking the provided asynchronous function.
-    /// </summary>
+    /// </remarks>
     /// <typeparam name="T">The type of notifications this subscription handles.</typeparam>
-    internal class FuncSubscription<T> : Subscription<T>
+    public class FuncSubscription<T> : Subscription<T>
     {
         /// <summary>
         /// Gets the notification handler function wrapped by this subscription.

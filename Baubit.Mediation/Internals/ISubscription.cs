@@ -5,12 +5,17 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Baubit.Mediation
+namespace Baubit.Mediation.Internals
 {
     /// <summary>
-    /// Base interface for all subscription types. Defines the contract for running and disposing subscriptions.
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This interface is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this interface directly in your code. Use <see cref="IMediator"/> instead.</para>
     /// </summary>
-    internal interface ISubscription : IDisposable
+    /// <remarks>
+    /// Base interface for all subscription types. Defines the contract for running and disposing subscriptions.
+    /// </remarks>
+    public interface ISubscription : IDisposable
     {
         /// <summary>
         /// Gets a value indicating whether this subscription uses buffered message delivery.
@@ -28,10 +33,15 @@ namespace Baubit.Mediation
     }
 
     /// <summary>
-    /// Interface for subscriptions that handle notifications of type <typeparamref name="T"/>.
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This interface is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this interface directly in your code. Use <see cref="IMediator"/> instead.</para>
     /// </summary>
+    /// <remarks>
+    /// Interface for subscriptions that handle notifications of type <typeparamref name="T"/>.
+    /// </remarks>
     /// <typeparam name="T">The type of notifications handled by this subscription.</typeparam>
-    internal interface ISubscription<T> : ISubscription
+    public interface ISubscription<T> : ISubscription
     {
         /// <summary>
         /// Publishes a notification to this subscription, either buffering it or delivering it directly.
@@ -44,11 +54,16 @@ namespace Baubit.Mediation
     }
 
     /// <summary>
-    /// Interface for subscriptions that handle request/response pairs.
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This interface is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this interface directly in your code. Use <see cref="IMediator"/> instead.</para>
     /// </summary>
+    /// <remarks>
+    /// Interface for subscriptions that handle request/response pairs.
+    /// </remarks>
     /// <typeparam name="TRequest">The request type implementing <see cref="IRequest{TResponse}"/>.</typeparam>
     /// <typeparam name="TResponse">The response type implementing <see cref="IResponse"/>.</typeparam>
-    internal interface ISubscription<TRequest, TResponse> : ISubscription where TRequest : IRequest<TResponse> where TResponse : IResponse
+    public interface ISubscription<TRequest, TResponse> : ISubscription where TRequest : IRequest<TResponse> where TResponse : IResponse
     {
         /// <summary>
         /// Publishes a request asynchronously and awaits the response.

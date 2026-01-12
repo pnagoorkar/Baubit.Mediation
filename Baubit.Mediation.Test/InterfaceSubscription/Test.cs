@@ -9,7 +9,7 @@ using Xunit;
 namespace Baubit.Mediation.Test.InterfaceSubscription
 {
     /// <summary>
-    /// Tests for <see cref="Baubit.Mediation.InterfaceSubscription{T}"/>
+    /// Tests for <see cref="Baubit.Mediation.Internals.InterfaceSubscription{T}"/>
     /// </summary>
     public class Test
     {
@@ -63,7 +63,7 @@ namespace Baubit.Mediation.Test.InterfaceSubscription
             var subscriber = new TestSubscriber();
 
             // Act
-            var subscription = new Baubit.Mediation.InterfaceSubscription<string>(subscriber, true);
+            var subscription = new Baubit.Mediation.Internals.InterfaceSubscription<string>(subscriber, true);
 
             // Assert
             Assert.NotNull(subscription);
@@ -76,7 +76,7 @@ namespace Baubit.Mediation.Test.InterfaceSubscription
         {
             // Arrange
             var subscriber = new TestSubscriber();
-            var subscription = new Baubit.Mediation.InterfaceSubscription<string>(subscriber, false);
+            var subscription = new Baubit.Mediation.Internals.InterfaceSubscription<string>(subscriber, false);
 
             // Act
             var result = subscription.Publish("test-notification", CreateCache(), CancellationToken.None);
@@ -92,7 +92,7 @@ namespace Baubit.Mediation.Test.InterfaceSubscription
         {
             // Arrange
             var subscriber = new TestSubscriber();
-            var subscription = new Baubit.Mediation.InterfaceSubscription<string>(subscriber, true);
+            var subscription = new Baubit.Mediation.Internals.InterfaceSubscription<string>(subscriber, true);
 
             // Act
             subscription.Dispose();

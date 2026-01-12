@@ -9,7 +9,7 @@ using Xunit;
 namespace Baubit.Mediation.Test.SyncInterfaceSubscription
 {
     /// <summary>
-    /// Tests for <see cref="Baubit.Mediation.SyncInterfaceSubscription{TRequest, TResponse}"/>
+    /// Tests for <see cref="Baubit.Mediation.Internals.SyncInterfaceSubscription{TRequest, TResponse}"/>
     /// </summary>
     public class Test
     {
@@ -53,7 +53,7 @@ namespace Baubit.Mediation.Test.SyncInterfaceSubscription
             var handler = new TestSyncHandler();
 
             // Act
-            var subscription = new Baubit.Mediation.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
 
             // Assert
             Assert.NotNull(subscription);
@@ -68,7 +68,7 @@ namespace Baubit.Mediation.Test.SyncInterfaceSubscription
             var handler = new TestSyncHandler();
 
             // Act
-            var subscription = new Baubit.Mediation.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, false);
+            var subscription = new Baubit.Mediation.Internals.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, false);
 
             // Assert
             Assert.NotNull(subscription);
@@ -81,7 +81,7 @@ namespace Baubit.Mediation.Test.SyncInterfaceSubscription
         {
             // Arrange
             var handler = new TestSyncHandler();
-            var subscription = new Baubit.Mediation.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
 
             // Act
             subscription.Dispose();

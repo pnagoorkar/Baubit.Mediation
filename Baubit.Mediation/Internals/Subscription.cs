@@ -4,13 +4,18 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Baubit.Mediation
+namespace Baubit.Mediation.Internals
 {
     /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
     /// Base class for all subscription implementations. Manages the lifecycle of a subscription
     /// including buffered and unbuffered message processing.
-    /// </summary>
-    internal abstract class Subscription : ISubscription
+    /// </remarks>
+    public abstract class Subscription : ISubscription
     {
         /// <summary>
         /// Tracks whether this instance has been disposed.
@@ -93,11 +98,16 @@ namespace Baubit.Mediation
     }
 
     /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
     /// Base class for subscriptions that handle notifications of type <typeparamref name="T"/>.
     /// Supports both buffered and unbuffered notification delivery.
-    /// </summary>
+    /// </remarks>
     /// <typeparam name="T">The type of notifications this subscription handles.</typeparam>
-    internal abstract class Subscription<T> : Subscription, ISubscription<T>
+    public abstract class Subscription<T> : Subscription, ISubscription<T>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Subscription{T}"/> class.
@@ -131,12 +141,17 @@ namespace Baubit.Mediation
     }
 
     /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
     /// Base class for subscriptions that handle request/response pairs of types <typeparamref name="TRequest"/> and <typeparamref name="TResponse"/>.
     /// Supports both buffered (tracked) and unbuffered (direct) request handling.
-    /// </summary>
+    /// </remarks>
     /// <typeparam name="TRequest">The request type implementing <see cref="IRequest{TResponse}"/>.</typeparam>
     /// <typeparam name="TResponse">The response type implementing <see cref="IResponse"/>.</typeparam>
-    internal abstract class Subscription<TRequest, TResponse> : Subscription, ISubscription<TRequest, TResponse> where TRequest : IRequest<TResponse> where TResponse : IResponse
+    public abstract class Subscription<TRequest, TResponse> : Subscription, ISubscription<TRequest, TResponse> where TRequest : IRequest<TResponse> where TResponse : IResponse
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Subscription{TRequest, TResponse}"/> class.

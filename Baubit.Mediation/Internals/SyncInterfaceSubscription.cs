@@ -3,15 +3,20 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Baubit.Mediation
+namespace Baubit.Mediation.Internals
 {
     /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
     /// Subscription implementation that wraps a synchronous <see cref="IRequestHandler{TRequest, TResponse}"/>.
     /// Handles request/response pairs by invoking the synchronous handler.
-    /// </summary>
+    /// </remarks>
     /// <typeparam name="TRequest">The request type implementing <see cref="IRequest{TResponse}"/>.</typeparam>
     /// <typeparam name="TResponse">The response type implementing <see cref="IResponse"/>.</typeparam>
-    internal class SyncInterfaceSubscription<TRequest, TResponse> : Subscription<TRequest, TResponse> where TRequest : IRequest<TResponse> where TResponse : IResponse
+    public class SyncInterfaceSubscription<TRequest, TResponse> : Subscription<TRequest, TResponse> where TRequest : IRequest<TResponse> where TResponse : IResponse
     {
         /// <summary>
         /// Gets the synchronous request handler wrapped by this subscription.

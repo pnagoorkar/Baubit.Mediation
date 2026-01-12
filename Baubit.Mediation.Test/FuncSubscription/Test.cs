@@ -9,7 +9,7 @@ using Xunit;
 namespace Baubit.Mediation.Test.FuncSubscription
 {
     /// <summary>
-    /// Tests for <see cref="Baubit.Mediation.FuncSubscription{T}"/>
+    /// Tests for <see cref="Baubit.Mediation.Internals.FuncSubscription{T}"/>
     /// </summary>
     public class Test
     {
@@ -31,7 +31,7 @@ namespace Baubit.Mediation.Test.FuncSubscription
             Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
 
             // Act
-            var subscription = new Baubit.Mediation.FuncSubscription<string>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true);
 
             // Assert
             Assert.NotNull(subscription);
@@ -50,7 +50,7 @@ namespace Baubit.Mediation.Test.FuncSubscription
                 await Task.CompletedTask;
                 return true;
             };
-            var subscription = new Baubit.Mediation.FuncSubscription<string>(handler, false);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false);
 
             // Act
             var result = subscription.Publish("test", CreateCache(), CancellationToken.None);
@@ -64,7 +64,7 @@ namespace Baubit.Mediation.Test.FuncSubscription
         public void Publish_WithNullHandler_ReturnsTrue()
         {
             // Arrange
-            var subscription = new Baubit.Mediation.FuncSubscription<string>(null, false);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(null, false);
 
             // Act
             var result = subscription.Publish("test", CreateCache(), CancellationToken.None);
@@ -78,7 +78,7 @@ namespace Baubit.Mediation.Test.FuncSubscription
         {
             // Arrange
             Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
-            var subscription = new Baubit.Mediation.FuncSubscription<string>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true);
 
             // Act
             subscription.Dispose();

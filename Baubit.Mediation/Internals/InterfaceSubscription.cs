@@ -3,14 +3,19 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Baubit.Mediation
+namespace Baubit.Mediation.Internals
 {
     /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
     /// Subscription implementation that wraps an <see cref="ISubscriber{T}"/> for notifications of type <typeparamref name="T"/>.
     /// Handles notifications by invoking the subscriber's OnNextOrError method.
-    /// </summary>
+    /// </remarks>
     /// <typeparam name="T">The type of notifications this subscription handles.</typeparam>
-    internal class InterfaceSubscription<T> : Subscription<T>
+    public class InterfaceSubscription<T> : Subscription<T>
     {
         /// <summary>
         /// Gets the subscriber wrapped by this subscription.

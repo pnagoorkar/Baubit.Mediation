@@ -10,7 +10,7 @@ using Xunit;
 namespace Baubit.Mediation.Test.AsyncFuncSubscription
 {
     /// <summary>
-    /// Tests for <see cref="Baubit.Mediation.AsyncFuncSubscription{TRequest, TResponse}"/>
+    /// Tests for <see cref="Baubit.Mediation.Internals.AsyncFuncSubscription{TRequest, TResponse}"/>
     /// </summary>
     public class Test
     {
@@ -50,7 +50,7 @@ namespace Baubit.Mediation.Test.AsyncFuncSubscription
             };
 
             // Act
-            var subscription = new Baubit.Mediation.AsyncFuncSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.AsyncFuncSubscription<TestRequest, TestResponse>(handler, true);
 
             // Assert
             Assert.NotNull(subscription);
@@ -67,7 +67,7 @@ namespace Baubit.Mediation.Test.AsyncFuncSubscription
                 await Task.Delay(1);
                 return new TestResponse { Result = $"Func: {req.Value}" };
             };
-            var subscription = new Baubit.Mediation.AsyncFuncSubscription<TestRequest, TestResponse>(handler, false);
+            var subscription = new Baubit.Mediation.Internals.AsyncFuncSubscription<TestRequest, TestResponse>(handler, false);
             var request = new TestRequest { Value = "test" };
 
             // Act
@@ -92,7 +92,7 @@ namespace Baubit.Mediation.Test.AsyncFuncSubscription
                 await Task.CompletedTask;
                 return new TestResponse();
             };
-            var subscription = new Baubit.Mediation.AsyncFuncSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.AsyncFuncSubscription<TestRequest, TestResponse>(handler, true);
 
             // Act
             subscription.Dispose();
