@@ -27,11 +27,11 @@ public class BaubitNotification
     public string Message { get; set; } = string.Empty;
 }
 
-public class BaubitSyncHandler : IRequestHandler<BaubitRequest, BaubitResponse>
+public class BaubitAsyncHandler : IAsyncRequestHandler<BaubitRequest, BaubitResponse>
 {
-    public BaubitResponse Handle(BaubitRequest request)
+    public Task<BaubitResponse> HandleAsync(BaubitRequest request)
     {
-        return new BaubitResponse { Result = request.Value * 2 };
+        return Task.FromResult(new BaubitResponse { Result = request.Value * 2 });
     }
 }
 

@@ -72,7 +72,7 @@ namespace Baubit.Mediation.Benchmark
             _cts = new CancellationTokenSource();
 
             // Register sync handler and notification subscriber
-            var baubitHandler = new BaubitSyncHandler();
+            var baubitHandler = new BaubitAsyncHandler();
             _ = _baubitMediator.SubscribeAsync(new BaubitNotificationSubscriber(), false, _cts.Token);
             _ = _baubitMediator.SubscribeAsync<BaubitRequest, BaubitResponse>(baubitHandler, false, _cts.Token);
 
