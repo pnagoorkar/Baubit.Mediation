@@ -188,7 +188,8 @@ namespace Baubit.Mediation.Internals
                         return trackedResponse.Response;
                     }
                 }
-                throw new TaskCanceledException(); // This should never get executed
+                // Enumerator completed without finding a response (cancellation or unexpected cache issue)
+                throw new TaskCanceledException("Response not received before enumeration ended");
             }
             else
             {
