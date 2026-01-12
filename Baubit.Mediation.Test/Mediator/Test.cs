@@ -247,7 +247,7 @@ namespace Baubit.Mediation.Test.Mediator
                 () => mediator.PublishAsync<TestRequest, TestResponse>(request));
         }
 
-        [Fact(Skip = "Test is flaky. Fix it")]
+        [Fact]
         public async Task PublishAsync_ConcurrentRequests_AllProcessedSuccessfully()
         {
             // Arrange
@@ -257,7 +257,8 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
             _ = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, true, cts.Token);
 
-            //_ = mediator.SubscribeAsync<TestRequest, TestResponse>((req, cancToken) => Task.FromResult(new TestResponse { Result = $"Handled: {req.Value}" }), true, cts.Token);
+            // Give subscription time to start
+            await Task.Delay(100);
 
             const int requestCount = 100;
             var tasks = new List<Task<TestResponse>>(requestCount);
@@ -288,6 +289,9 @@ namespace Baubit.Mediation.Test.Mediator
             }
             // Verify all unique requests were handled
             Assert.Equal(requestCount, responseSet.Count);
+            
+            // Cleanup
+            cts.Cancel();
         }
 
         [Fact]
@@ -1674,41 +1678,6 @@ namespace Baubit.Mediation.Test.Mediator
             Assert.True(result);
             Assert.Equal(0, cache.Count); // Should not be in cache
             Assert.Equal("async-unbuffered-test", subscriber.LastValue); // Should be delivered directly
-
-            cts.Cancel();
-        }
-
-        #endregion
-
-        #region Tests for buffered sync handler and atomic registration
-
-        [Fact(Skip = "This will need to be writtern properly. The only way to check that it uses named enumerators is by getting access to the underlying CacheEnumeratorCollection")]
-        public async Task SubscribeAsync_WithNameOverload_UsesNamedEnumerator()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            using var cts = new CancellationTokenSource();
-            var receivedNotifications = new System.Collections.Concurrent.ConcurrentBag<string>();
-
-            // Act - Use the name overload
-            var subscription = mediator.SubscribeAsync<string>(
-                async (notification, ct) =>
-                {
-                    receivedNotifications.Add(notification);
-                    await Task.CompletedTask;
-                    return true;
-                },
-                true,
-                "test-enumerator-name",
-                cts.Token
-            );
-
-            cache.Add("test-notification", out _);
-
-            // Assert
-            Assert.Single(receivedNotifications);
-            Assert.Contains("test-notification", receivedNotifications);
 
             cts.Cancel();
         }
