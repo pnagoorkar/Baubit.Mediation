@@ -28,7 +28,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="notificationHandler">The function to invoke for each notification.</param>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
-        internal FuncSubscription(Func<T, CancellationToken, Task<bool>> notificationHandler, 
+        public FuncSubscription(Func<T, CancellationToken, Task<bool>> notificationHandler, 
                                   bool enableBuffering) : base(enableBuffering)
         {
             NotificationHandler = notificationHandler;

@@ -29,7 +29,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="asyncHandler">The asynchronous handler to wrap.</param>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
-        internal AsyncInterfaceSubscription(IAsyncRequestHandler<TRequest, TResponse> asyncHandler,
+        public AsyncInterfaceSubscription(IAsyncRequestHandler<TRequest, TResponse> asyncHandler,
                                             bool enableBuffering) : base(enableBuffering)
         {
             AsyncHandler = asyncHandler;

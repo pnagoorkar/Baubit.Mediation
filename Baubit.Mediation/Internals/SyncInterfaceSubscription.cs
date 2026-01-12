@@ -28,7 +28,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="syncHandler">The synchronous handler to wrap.</param>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
-        internal SyncInterfaceSubscription(IRequestHandler<TRequest, TResponse> syncHandler,
+        public SyncInterfaceSubscription(IRequestHandler<TRequest, TResponse> syncHandler,
                                            bool enableBuffering) : base(enableBuffering)
         {
             SyncHandler = syncHandler;

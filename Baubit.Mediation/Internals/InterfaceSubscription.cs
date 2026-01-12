@@ -27,7 +27,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="subscriber">The subscriber to wrap.</param>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
-        internal InterfaceSubscription(ISubscriber<T> subscriber, bool enableBuffering) : base(enableBuffering)
+        public InterfaceSubscription(ISubscriber<T> subscriber, bool enableBuffering) : base(enableBuffering)
         {
             Subscriber = subscriber;
         }
