@@ -44,11 +44,11 @@ namespace Baubit.Mediation.Internals
         /// <returns>A task that completes when message processing ends, returning true on successful completion.</returns>
         protected override async Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
         {
-            while (await enumerator.MoveNextAsync())
+            while (await enumerator.MoveNextAsync().ConfigureAwait(false))
             {
                 if (enumerator.Current.Value is T notification && NotificationHandler != null)
                 {
-                    await NotificationHandler.Invoke(notification, cancellationToken);
+                    await NotificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false);
                 }
             }
             return true;
@@ -64,7 +64,7 @@ namespace Baubit.Mediation.Internals
         protected override async Task<bool> DispatchAsync(T notification, CancellationToken cancellationToken = default)
         {
             if (NotificationHandler == null) return true;
-            return await NotificationHandler.Invoke(notification, cancellationToken);
+            return await NotificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

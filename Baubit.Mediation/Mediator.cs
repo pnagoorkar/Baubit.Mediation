@@ -93,7 +93,7 @@ namespace Baubit.Mediation
             if (subscription == null) throw new InvalidOperationException("No handler registered!");
             if (subscription is not ISubscription<TRequest, TResponse> requestSubscription) throw new InvalidOperationException($"Unexpected type of handler registered for {typeof(TRequest).AssemblyQualifiedName}");
 
-            return await requestSubscription.PublishAsync(request, cache, idGenerator, null, cancellationToken);
+            return await requestSubscription.PublishAsync(request, cache, idGenerator, null, cancellationToken).ConfigureAwait(false);
         }
 
         public Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
@@ -115,7 +115,7 @@ namespace Baubit.Mediation
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken);
+                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
             }
             finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
@@ -137,7 +137,7 @@ namespace Baubit.Mediation
             if (!ReferenceEquals(cachedSubscription, subscriptions)) cachedSubscription.Add(subscription); // Another subscriber raced to create the subscriptions collection. No worries.
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken);
+                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
             }
             finally { cachedSubscription.Remove(subscription); }
         }
@@ -163,7 +163,7 @@ namespace Baubit.Mediation
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken);
+                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
             }
             finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
@@ -185,7 +185,7 @@ namespace Baubit.Mediation
             if (!ReferenceEquals(cachedSubscription, subscriptions)) cachedSubscription.Add(subscription); // Another subscriber raced to create the subscriptions collection. No worries.
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken);
+                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
             }
             finally { cachedSubscription.Remove(subscription); }
         }
@@ -211,7 +211,7 @@ namespace Baubit.Mediation
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken);
+                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
             }
             finally { cachedSubscription.Remove(subscriptions[0]); }
         }

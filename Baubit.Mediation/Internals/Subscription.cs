@@ -47,7 +47,7 @@ namespace Baubit.Mediation.Internals
         /// <returns>A task that completes when the subscription ends, returning true on successful completion.</returns>
         public async Task<bool> RunAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
         {
-            if (EnableBuffering) await ProcessBufferAsync(cache, enumerator, cancellationToken);
+            if (EnableBuffering) await ProcessBufferAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
             else
             {
                 // Await indefinitely while the cancellation token is not cancelled
@@ -128,7 +128,7 @@ namespace Baubit.Mediation.Internals
         public bool Publish(T notification, IOrderedCache<long, object> cache, CancellationToken cancellationToken = default)
         {
             if (EnableBuffering) return cache.Add(notification, out _);
-            else return DispatchAsync(notification).GetAwaiter().GetResult();
+            else return DispatchAsync(notification).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -181,7 +181,7 @@ namespace Baubit.Mediation.Internals
                 var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
                 var trackedRequest = new TrackedRequest<TRequest, TResponse>(identityGenerator.GetNext(), request);
                 cache.Add(trackedRequest, out var entry);
-                while (await enumerator.MoveNextAsync())
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
                     if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedResponse.ForRequest == trackedRequest.Id)
                     {
@@ -193,7 +193,7 @@ namespace Baubit.Mediation.Internals
             }
             else
             {
-                return await DispatchAsync(request, cancellationToken);
+                return await DispatchAsync(request, cancellationToken).ConfigureAwait(false);
             }
         }
 

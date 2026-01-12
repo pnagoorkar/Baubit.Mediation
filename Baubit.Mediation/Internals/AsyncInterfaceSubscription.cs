@@ -1,5 +1,4 @@
 ﻿using Baubit.Caching;
-using Baubit.Identity;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,11 +44,11 @@ namespace Baubit.Mediation.Internals
         /// <returns>A task that completes when message processing ends, returning true on successful completion.</returns>
         protected override async Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
         {
-            while (await enumerator.MoveNextAsync())
+            while (await enumerator.MoveNextAsync().ConfigureAwait(false))
             {
                 if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                 {
-                    var response = await AsyncHandler.HandleAsync(trackedRequest.Request);
+                    var response = await AsyncHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
                     cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
                 }
             }
@@ -64,7 +63,7 @@ namespace Baubit.Mediation.Internals
         /// <returns>A task that completes with the response from the handler.</returns>
         protected override async Task<TResponse> DispatchAsync(TRequest request, CancellationToken cancellationToken = default)
         {
-            return await AsyncHandler.HandleAsync(request);
+            return await AsyncHandler.HandleAsync(request).ConfigureAwait(false);
         }
 
         /// <summary>
