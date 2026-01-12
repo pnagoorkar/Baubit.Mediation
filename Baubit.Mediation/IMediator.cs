@@ -40,18 +40,6 @@ namespace Baubit.Mediation
         Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
 
         /// <summary>
-        /// Publishes a request asynchronously and awaits a response from a registered handler.
-        /// </summary>
-        /// <typeparam name="TRequest">The request type.</typeparam>
-        /// <typeparam name="TResponse">The response type.</typeparam>
-        /// <param name="request">The request to publish.</param>
-        /// <param name="name">Name for the cache enumerator.</param>
-        /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that completes with the response from the handler.</returns>
-        /// <exception cref="System.InvalidOperationException">Thrown when no handler is registered for the request type.</exception>
-        Task<TResponse> PublishAsync<TRequest, TResponse>(TRequest request, string name, CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
-
-        /// <summary>
         /// Subscribes to notifications of a specific type.
         /// </summary>
         /// <typeparam name="T">The type of notifications to receive.</typeparam>
@@ -72,19 +60,16 @@ namespace Baubit.Mediation
         /// <returns>A task that completes when the subscription ends.</returns>
         Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering, string name, CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// Registers a synchronous request handler for a specific request/response pair.
-        /// Only one handler can be registered for a specific request type at a time.
-        /// </summary>
-        /// <typeparam name="TRequest">The request type to handle.</typeparam>
-        /// <typeparam name="TResponse">The response type to return.</typeparam>
-        /// <param name="requestHandler">The handler to register.</param>
-        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.<br/>true by default.</param>
-        /// <param name="cancellationToken">A token that unregisters the handler when cancelled.</param>
-        /// <returns><c>true</c> if the handler was registered; <c>false</c> if a handler for this type is already registered.</returns>
-        bool Subscribe<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
-                                            bool enableBuffering = true,
-                                            CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
+
+        Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
+                                                       bool enableBuffering = true,
+                                                       CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
+
+
+        Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
+                                                       bool enableBuffering = true,
+                                                       string name = null,
+                                                       CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
 
         /// <summary>
         /// Registers an asynchronous request handler for a specific request/response pair.
@@ -114,8 +99,8 @@ namespace Baubit.Mediation
         /// <param name="cancellationToken">A token to cancel the subscription.</param>
         /// <returns>A task that completes when the subscription ends with <c>true</c>, or <c>false</c> if a handler for this type is already registered.</returns>
         Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler,
-                                                       bool enableBuffering,
-                                                       string name,
+                                                       bool enableBuffering = true,
+                                                       string name = null,
                                                        CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
 
         /// <summary>
@@ -142,8 +127,8 @@ namespace Baubit.Mediation
         /// <param name="cancellationToken">A token to cancel the subscription.</param>
         /// <returns>A task that completes with <c>true</c> when the subscription ends.</returns>
         Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler,
-                                                 bool enableBuffering,
-                                                 string name,
+                                                       bool enableBuffering = true,
+                                                       string name = null,
                                                  CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -174,8 +159,8 @@ namespace Baubit.Mediation
         /// <param name="cancellationToken">A token to cancel the subscription.</param>
         /// <returns>A task that completes with <c>true</c> when the subscription ends, or <c>false</c> if another handler for this request type is already registered.</returns>
         Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler,
-                                                       bool enableBuffering,
-                                                       string name,
+                                                       bool enableBuffering = true,
+                                                       string name = null,
                                                        CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
     }
 }
