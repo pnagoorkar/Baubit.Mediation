@@ -1,0 +1,1237 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 12 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/" /p:OutDir="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0/" /p:OutputPath="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0/" /p:PublishDir="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/publish/" in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1
+// command took 1.34 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/" /p:OutDir="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0/" /p:OutputPath="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0/" /p:PublishDir="/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/publish/" --output "/home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0/" in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1
+// command took 8.29 sec and exited with 0
+// ***** Done, took 00:00:09 (9.69 sec)   *****
+// Found 12 benchmarks:
+//   MediatorBenchmarks.'MediatR: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+//   MediatorBenchmarks.'Baubit: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+//   MediatorBenchmarks.'MediatR: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+//   MediatorBenchmarks.'Baubit: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+//   MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+//   MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+//   MediatorBenchmarks.'MediatR: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+//   MediatorBenchmarks.'Baubit: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+//   MediatorBenchmarks.'MediatR: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+//   MediatorBenchmarks.'Baubit: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+//   MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+//   MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+
+// **************************
+// Benchmark: MediatorBenchmarks.'MediatR: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Notify_01_MediatR(OperationCount: 100)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 0 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 220844.00 ns, 13.8028 us/op
+WorkloadJitting  1: 16 op, 4218117.00 ns, 263.6323 us/op
+
+OverheadWarmup   1: 10000 op, 16592.00 ns, 1.6592 ns/op
+OverheadWarmup   2: 10000 op, 18315.00 ns, 1.8315 ns/op
+OverheadWarmup   3: 10000 op, 16501.00 ns, 1.6501 ns/op
+OverheadWarmup   4: 10000 op, 16551.00 ns, 1.6551 ns/op
+OverheadWarmup   5: 10000 op, 16641.00 ns, 1.6641 ns/op
+OverheadWarmup   6: 10000 op, 16551.00 ns, 1.6551 ns/op
+
+OverheadActual   1: 10000 op, 16582.00 ns, 1.6582 ns/op
+OverheadActual   2: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual   3: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual   4: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadActual   5: 10000 op, 16622.00 ns, 1.6622 ns/op
+OverheadActual   6: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadActual   7: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadActual   8: 10000 op, 16562.00 ns, 1.6562 ns/op
+OverheadActual   9: 10000 op, 16582.00 ns, 1.6582 ns/op
+OverheadActual  10: 10000 op, 16561.00 ns, 1.6561 ns/op
+OverheadActual  11: 10000 op, 16551.00 ns, 1.6551 ns/op
+OverheadActual  12: 10000 op, 16572.00 ns, 1.6572 ns/op
+OverheadActual  13: 10000 op, 16551.00 ns, 1.6551 ns/op
+OverheadActual  14: 10000 op, 16531.00 ns, 1.6531 ns/op
+OverheadActual  15: 10000 op, 16591.00 ns, 1.6591 ns/op
+
+WorkloadWarmup   1: 10000 op, 11093316.00 ns, 1.1093 us/op
+WorkloadWarmup   2: 10000 op, 10816016.00 ns, 1.0816 us/op
+WorkloadWarmup   3: 10000 op, 10861642.00 ns, 1.0862 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 13734097.00 ns, 1.3734 us/op
+WorkloadActual   2: 10000 op, 15611896.00 ns, 1.5612 us/op
+WorkloadActual   3: 10000 op, 15575148.00 ns, 1.5575 us/op
+WorkloadActual   4: 10000 op, 14372003.00 ns, 1.4372 us/op
+WorkloadActual   5: 10000 op, 10809965.00 ns, 1.0810 us/op
+WorkloadActual   6: 10000 op, 10787212.00 ns, 1.0787 us/op
+WorkloadActual   7: 10000 op, 10730155.00 ns, 1.0730 us/op
+WorkloadActual   8: 10000 op, 10929810.00 ns, 1.0930 us/op
+WorkloadActual   9: 10000 op, 10680652.00 ns, 1.0681 us/op
+WorkloadActual  10: 10000 op, 10747999.00 ns, 1.0748 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 13717515.00 ns, 1.3718 us/op
+WorkloadResult   2: 10000 op, 15595314.00 ns, 1.5595 us/op
+WorkloadResult   3: 10000 op, 15558566.00 ns, 1.5559 us/op
+WorkloadResult   4: 10000 op, 14355421.00 ns, 1.4355 us/op
+WorkloadResult   5: 10000 op, 10793383.00 ns, 1.0793 us/op
+WorkloadResult   6: 10000 op, 10770630.00 ns, 1.0771 us/op
+WorkloadResult   7: 10000 op, 10713573.00 ns, 1.0714 us/op
+WorkloadResult   8: 10000 op, 10913228.00 ns, 1.0913 us/op
+WorkloadResult   9: 10000 op, 10664070.00 ns, 1.0664 us/op
+WorkloadResult  10: 10000 op, 10731417.00 ns, 1.0731 us/op
+// GC:  0 0 0 2885672 10000
+// Threading:  1 0 10000
+
+// AfterAll
+// Benchmark Process 5214 has exited with code 0.
+
+Mean = 1.238 μs, StdErr = 0.068 μs (5.51%), N = 10, StdDev = 0.216 μs
+Min = 1.066 μs, Q1 = 1.074 μs, Median = 1.085 μs, Q3 = 1.420 μs, Max = 1.560 μs
+IQR = 0.345 μs, LowerFence = 0.556 μs, UpperFence = 1.938 μs
+ConfidenceInterval = [0.912 μs; 1.564 μs] (CI 99.9%), Margin = 0.326 μs (26.33% of Mean)
+Skewness = 0.5, Kurtosis = 1.24, MValue = 3.33
+
+// ** Remained 11 (91.7 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'Baubit: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Notify_02_Baubit(OperationCount: 100)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 1 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 360365.00 ns, 22.5228 us/op
+WorkloadJitting  1: 16 op, 1338699.00 ns, 83.6687 us/op
+
+OverheadWarmup   1: 10000 op, 29847.00 ns, 2.9847 ns/op
+OverheadWarmup   2: 10000 op, 29255.00 ns, 2.9255 ns/op
+OverheadWarmup   3: 10000 op, 29505.00 ns, 2.9505 ns/op
+OverheadWarmup   4: 10000 op, 29526.00 ns, 2.9526 ns/op
+OverheadWarmup   5: 10000 op, 30076.00 ns, 3.0076 ns/op
+OverheadWarmup   6: 10000 op, 29404.00 ns, 2.9404 ns/op
+OverheadWarmup   7: 10000 op, 29736.00 ns, 2.9736 ns/op
+OverheadWarmup   8: 10000 op, 29876.00 ns, 2.9876 ns/op
+OverheadWarmup   9: 10000 op, 29996.00 ns, 2.9996 ns/op
+OverheadWarmup  10: 10000 op, 30047.00 ns, 3.0047 ns/op
+
+OverheadActual   1: 10000 op, 30056.00 ns, 3.0056 ns/op
+OverheadActual   2: 10000 op, 30207.00 ns, 3.0207 ns/op
+OverheadActual   3: 10000 op, 30587.00 ns, 3.0587 ns/op
+OverheadActual   4: 10000 op, 29836.00 ns, 2.9836 ns/op
+OverheadActual   5: 10000 op, 31068.00 ns, 3.1068 ns/op
+OverheadActual   6: 10000 op, 31069.00 ns, 3.1069 ns/op
+OverheadActual   7: 10000 op, 30988.00 ns, 3.0988 ns/op
+OverheadActual   8: 10000 op, 30748.00 ns, 3.0748 ns/op
+OverheadActual   9: 10000 op, 30517.00 ns, 3.0517 ns/op
+OverheadActual  10: 10000 op, 30878.00 ns, 3.0878 ns/op
+OverheadActual  11: 10000 op, 30998.00 ns, 3.0998 ns/op
+OverheadActual  12: 10000 op, 30828.00 ns, 3.0828 ns/op
+OverheadActual  13: 10000 op, 30888.00 ns, 3.0888 ns/op
+OverheadActual  14: 10000 op, 30718.00 ns, 3.0718 ns/op
+OverheadActual  15: 10000 op, 30958.00 ns, 3.0958 ns/op
+
+WorkloadWarmup   1: 10000 op, 3285459.00 ns, 328.5459 ns/op
+WorkloadWarmup   2: 10000 op, 3472951.00 ns, 347.2951 ns/op
+WorkloadWarmup   3: 10000 op, 3158802.00 ns, 315.8802 ns/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 3136359.00 ns, 313.6359 ns/op
+WorkloadActual   2: 10000 op, 3097056.00 ns, 309.7056 ns/op
+WorkloadActual   3: 10000 op, 3106664.00 ns, 310.6664 ns/op
+WorkloadActual   4: 10000 op, 3040059.00 ns, 304.0059 ns/op
+WorkloadActual   5: 10000 op, 3016314.00 ns, 301.6314 ns/op
+WorkloadActual   6: 10000 op, 3151809.00 ns, 315.1809 ns/op
+WorkloadActual   7: 10000 op, 3057662.00 ns, 305.7662 ns/op
+WorkloadActual   8: 10000 op, 3080886.00 ns, 308.0886 ns/op
+WorkloadActual   9: 10000 op, 3067019.00 ns, 306.7019 ns/op
+WorkloadActual  10: 10000 op, 3312670.00 ns, 331.2670 ns/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 3105531.00 ns, 310.5531 ns/op
+WorkloadResult   2: 10000 op, 3066228.00 ns, 306.6228 ns/op
+WorkloadResult   3: 10000 op, 3075836.00 ns, 307.5836 ns/op
+WorkloadResult   4: 10000 op, 3009231.00 ns, 300.9231 ns/op
+WorkloadResult   5: 10000 op, 2985486.00 ns, 298.5486 ns/op
+WorkloadResult   6: 10000 op, 3120981.00 ns, 312.0981 ns/op
+WorkloadResult   7: 10000 op, 3026834.00 ns, 302.6834 ns/op
+WorkloadResult   8: 10000 op, 3050058.00 ns, 305.0058 ns/op
+WorkloadResult   9: 10000 op, 3036191.00 ns, 303.6191 ns/op
+// GC:  0 0 0 640000 10000
+// Threading:  0 0 10000
+
+// AfterAll
+// Benchmark Process 5227 has exited with code 0.
+
+Mean = 305.293 ns, StdErr = 1.469 ns (0.48%), N = 9, StdDev = 4.406 ns
+Min = 298.549 ns, Q1 = 302.683 ns, Median = 305.006 ns, Q3 = 307.584 ns, Max = 312.098 ns
+IQR = 4.900 ns, LowerFence = 295.333 ns, UpperFence = 314.934 ns
+ConfidenceInterval = [297.890 ns; 312.696 ns] (CI 99.9%), Margin = 7.403 ns (2.42% of Mean)
+Skewness = 0.08, Kurtosis = 1.6, MValue = 2
+
+// ** Remained 10 (83.3 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'MediatR: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Simple_01_MediatR(OperationCount: 100)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 2 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 532738.00 ns, 33.2961 us/op
+WorkloadJitting  1: 16 op, 3886837.00 ns, 242.9273 us/op
+
+OverheadWarmup   1: 10000 op, 51096.00 ns, 5.1096 ns/op
+OverheadWarmup   2: 10000 op, 48692.00 ns, 4.8692 ns/op
+OverheadWarmup   3: 10000 op, 48852.00 ns, 4.8852 ns/op
+OverheadWarmup   4: 10000 op, 48641.00 ns, 4.8641 ns/op
+OverheadWarmup   5: 10000 op, 48440.00 ns, 4.8440 ns/op
+OverheadWarmup   6: 10000 op, 48350.00 ns, 4.8350 ns/op
+OverheadWarmup   7: 10000 op, 48801.00 ns, 4.8801 ns/op
+OverheadWarmup   8: 10000 op, 51146.00 ns, 5.1146 ns/op
+OverheadWarmup   9: 10000 op, 48210.00 ns, 4.8210 ns/op
+
+OverheadActual   1: 10000 op, 50314.00 ns, 5.0314 ns/op
+OverheadActual   2: 10000 op, 48781.00 ns, 4.8781 ns/op
+OverheadActual   3: 10000 op, 61325.00 ns, 6.1325 ns/op
+OverheadActual   4: 10000 op, 60232.00 ns, 6.0232 ns/op
+OverheadActual   5: 10000 op, 60944.00 ns, 6.0944 ns/op
+OverheadActual   6: 10000 op, 60924.00 ns, 6.0924 ns/op
+OverheadActual   7: 10000 op, 55685.00 ns, 5.5685 ns/op
+OverheadActual   8: 10000 op, 61786.00 ns, 6.1786 ns/op
+OverheadActual   9: 10000 op, 61927.00 ns, 6.1927 ns/op
+OverheadActual  10: 10000 op, 59191.00 ns, 5.9191 ns/op
+OverheadActual  11: 10000 op, 62206.00 ns, 6.2206 ns/op
+OverheadActual  12: 10000 op, 64311.00 ns, 6.4311 ns/op
+OverheadActual  13: 10000 op, 63789.00 ns, 6.3789 ns/op
+OverheadActual  14: 10000 op, 64792.00 ns, 6.4792 ns/op
+OverheadActual  15: 10000 op, 58429.00 ns, 5.8429 ns/op
+OverheadActual  16: 10000 op, 60113.00 ns, 6.0113 ns/op
+OverheadActual  17: 10000 op, 60313.00 ns, 6.0313 ns/op
+OverheadActual  18: 10000 op, 61205.00 ns, 6.1205 ns/op
+OverheadActual  19: 10000 op, 57158.00 ns, 5.7158 ns/op
+OverheadActual  20: 10000 op, 56346.00 ns, 5.6346 ns/op
+
+WorkloadWarmup   1: 10000 op, 16212412.00 ns, 1.6212 us/op
+WorkloadWarmup   2: 10000 op, 11518684.00 ns, 1.1519 us/op
+WorkloadWarmup   3: 10000 op, 11415781.00 ns, 1.1416 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 11592001.00 ns, 1.1592 us/op
+WorkloadActual   2: 10000 op, 11473860.00 ns, 1.1474 us/op
+WorkloadActual   3: 10000 op, 11549792.00 ns, 1.1550 us/op
+WorkloadActual   4: 10000 op, 11373832.00 ns, 1.1374 us/op
+WorkloadActual   5: 10000 op, 11429026.00 ns, 1.1429 us/op
+WorkloadActual   6: 10000 op, 11495470.00 ns, 1.1495 us/op
+WorkloadActual   7: 10000 op, 11428775.00 ns, 1.1429 us/op
+WorkloadActual   8: 10000 op, 11491813.00 ns, 1.1492 us/op
+WorkloadActual   9: 10000 op, 11370696.00 ns, 1.1371 us/op
+WorkloadActual  10: 10000 op, 11370025.00 ns, 1.1370 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 11531382.50 ns, 1.1531 us/op
+WorkloadResult   2: 10000 op, 11413241.50 ns, 1.1413 us/op
+WorkloadResult   3: 10000 op, 11489173.50 ns, 1.1489 us/op
+WorkloadResult   4: 10000 op, 11313213.50 ns, 1.1313 us/op
+WorkloadResult   5: 10000 op, 11368407.50 ns, 1.1368 us/op
+WorkloadResult   6: 10000 op, 11434851.50 ns, 1.1435 us/op
+WorkloadResult   7: 10000 op, 11368156.50 ns, 1.1368 us/op
+WorkloadResult   8: 10000 op, 11431194.50 ns, 1.1431 us/op
+WorkloadResult   9: 10000 op, 11310077.50 ns, 1.1310 us/op
+WorkloadResult  10: 10000 op, 11309406.50 ns, 1.1309 us/op
+// GC:  0 0 0 3605792 10000
+// Threading:  1 0 10000
+
+// AfterAll
+// Benchmark Process 5239 has exited with code 0.
+
+Mean = 1.140 μs, StdErr = 0.002 μs (0.21%), N = 10, StdDev = 0.008 μs
+Min = 1.131 μs, Q1 = 1.133 μs, Median = 1.139 μs, Q3 = 1.143 μs, Max = 1.153 μs
+IQR = 0.011 μs, LowerFence = 1.117 μs, UpperFence = 1.159 μs
+ConfidenceInterval = [1.128 μs; 1.151 μs] (CI 99.9%), Margin = 0.012 μs (1.02% of Mean)
+Skewness = 0.3, Kurtosis = 1.62, MValue = 2
+
+// ** Remained 9 (75.0 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'Baubit: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Simple_02_Baubit_Async(OperationCount: 100)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 3 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 494537.00 ns, 30.9086 us/op
+WorkloadJitting  1: 16 op, 2598943.00 ns, 162.4339 us/op
+
+OverheadWarmup   1: 10000 op, 79479.00 ns, 7.9479 ns/op
+OverheadWarmup   2: 10000 op, 48200.00 ns, 4.8200 ns/op
+OverheadWarmup   3: 10000 op, 48030.00 ns, 4.8030 ns/op
+OverheadWarmup   4: 10000 op, 48351.00 ns, 4.8351 ns/op
+OverheadWarmup   5: 10000 op, 48160.00 ns, 4.8160 ns/op
+OverheadWarmup   6: 10000 op, 48691.00 ns, 4.8691 ns/op
+OverheadWarmup   7: 10000 op, 47950.00 ns, 4.7950 ns/op
+
+OverheadActual   1: 10000 op, 48601.00 ns, 4.8601 ns/op
+OverheadActual   2: 10000 op, 47509.00 ns, 4.7509 ns/op
+OverheadActual   3: 10000 op, 48541.00 ns, 4.8541 ns/op
+OverheadActual   4: 10000 op, 48231.00 ns, 4.8231 ns/op
+OverheadActual   5: 10000 op, 48451.00 ns, 4.8451 ns/op
+OverheadActual   6: 10000 op, 51938.00 ns, 5.1938 ns/op
+OverheadActual   7: 10000 op, 51466.00 ns, 5.1466 ns/op
+OverheadActual   8: 10000 op, 50976.00 ns, 5.0976 ns/op
+OverheadActual   9: 10000 op, 48401.00 ns, 4.8401 ns/op
+OverheadActual  10: 10000 op, 50194.00 ns, 5.0194 ns/op
+OverheadActual  11: 10000 op, 51005.00 ns, 5.1005 ns/op
+OverheadActual  12: 10000 op, 52819.00 ns, 5.2819 ns/op
+OverheadActual  13: 10000 op, 51387.00 ns, 5.1387 ns/op
+OverheadActual  14: 10000 op, 63639.00 ns, 6.3639 ns/op
+OverheadActual  15: 10000 op, 47930.00 ns, 4.7930 ns/op
+
+WorkloadWarmup   1: 10000 op, 4150931.00 ns, 415.0931 ns/op
+WorkloadWarmup   2: 10000 op, 3979299.00 ns, 397.9299 ns/op
+WorkloadWarmup   3: 10000 op, 3200619.00 ns, 320.0619 ns/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 3187475.00 ns, 318.7475 ns/op
+WorkloadActual   2: 10000 op, 3230405.00 ns, 323.0405 ns/op
+WorkloadActual   3: 10000 op, 3177927.00 ns, 317.7927 ns/op
+WorkloadActual   4: 10000 op, 3169501.00 ns, 316.9501 ns/op
+WorkloadActual   5: 10000 op, 3164271.00 ns, 316.4271 ns/op
+WorkloadActual   6: 10000 op, 3179319.00 ns, 317.9319 ns/op
+WorkloadActual   7: 10000 op, 3188657.00 ns, 318.8657 ns/op
+WorkloadActual   8: 10000 op, 3197643.00 ns, 319.7643 ns/op
+WorkloadActual   9: 10000 op, 3125308.00 ns, 312.5308 ns/op
+WorkloadActual  10: 10000 op, 3167998.00 ns, 316.7998 ns/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 3137281.00 ns, 313.7281 ns/op
+WorkloadResult   2: 10000 op, 3127733.00 ns, 312.7733 ns/op
+WorkloadResult   3: 10000 op, 3119307.00 ns, 311.9307 ns/op
+WorkloadResult   4: 10000 op, 3114077.00 ns, 311.4077 ns/op
+WorkloadResult   5: 10000 op, 3129125.00 ns, 312.9125 ns/op
+WorkloadResult   6: 10000 op, 3138463.00 ns, 313.8463 ns/op
+WorkloadResult   7: 10000 op, 3147449.00 ns, 314.7449 ns/op
+WorkloadResult   8: 10000 op, 3075114.00 ns, 307.5114 ns/op
+WorkloadResult   9: 10000 op, 3117804.00 ns, 311.7804 ns/op
+// GC:  0 0 0 1680000 10000
+// Threading:  0 0 10000
+
+// AfterAll
+// Benchmark Process 5251 has exited with code 0.
+
+Mean = 312.293 ns, StdErr = 0.699 ns (0.22%), N = 9, StdDev = 2.096 ns
+Min = 307.511 ns, Q1 = 311.780 ns, Median = 312.773 ns, Q3 = 313.728 ns, Max = 314.745 ns
+IQR = 1.948 ns, LowerFence = 308.859 ns, UpperFence = 316.650 ns
+ConfidenceInterval = [308.771 ns; 315.815 ns] (CI 99.9%), Margin = 3.522 ns (1.13% of Mean)
+Skewness = -1.07, Kurtosis = 3.28, MValue = 2
+
+// ** Remained 8 (66.7 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Parallel_01_MediatR(OperationCount: 100)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 4 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 202369.00 ns, 12.6481 us/op
+WorkloadJitting  1: 16 op, 5628219.00 ns, 351.7637 us/op
+
+OverheadWarmup   1: 10000 op, 16611.00 ns, 1.6611 ns/op
+OverheadWarmup   2: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadWarmup   3: 10000 op, 16551.00 ns, 1.6551 ns/op
+OverheadWarmup   4: 10000 op, 16632.00 ns, 1.6632 ns/op
+OverheadWarmup   5: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadWarmup   6: 10000 op, 16612.00 ns, 1.6612 ns/op
+OverheadWarmup   7: 10000 op, 16581.00 ns, 1.6581 ns/op
+
+OverheadActual   1: 10000 op, 16631.00 ns, 1.6631 ns/op
+OverheadActual   2: 10000 op, 17342.00 ns, 1.7342 ns/op
+OverheadActual   3: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual   4: 10000 op, 16631.00 ns, 1.6631 ns/op
+OverheadActual   5: 10000 op, 16571.00 ns, 1.6571 ns/op
+OverheadActual   6: 10000 op, 16651.00 ns, 1.6651 ns/op
+OverheadActual   7: 10000 op, 37230.00 ns, 3.7230 ns/op
+OverheadActual   8: 10000 op, 16622.00 ns, 1.6622 ns/op
+OverheadActual   9: 10000 op, 16521.00 ns, 1.6521 ns/op
+OverheadActual  10: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual  11: 10000 op, 16632.00 ns, 1.6632 ns/op
+OverheadActual  12: 10000 op, 16611.00 ns, 1.6611 ns/op
+OverheadActual  13: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual  14: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual  15: 10000 op, 16581.00 ns, 1.6581 ns/op
+
+WorkloadWarmup   1: 10000 op, 331883997.00 ns, 33.1884 us/op
+WorkloadWarmup   2: 10000 op, 138996810.00 ns, 13.8997 us/op
+WorkloadWarmup   3: 10000 op, 130467002.00 ns, 13.0467 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 128640850.00 ns, 12.8641 us/op
+WorkloadActual   2: 10000 op, 131017594.00 ns, 13.1018 us/op
+WorkloadActual   3: 10000 op, 130611473.00 ns, 13.0611 us/op
+WorkloadActual   4: 10000 op, 129471556.00 ns, 12.9472 us/op
+WorkloadActual   5: 10000 op, 127736775.00 ns, 12.7737 us/op
+WorkloadActual   6: 10000 op, 129823396.00 ns, 12.9823 us/op
+WorkloadActual   7: 10000 op, 128713275.00 ns, 12.8713 us/op
+WorkloadActual   8: 10000 op, 129773933.00 ns, 12.9774 us/op
+WorkloadActual   9: 10000 op, 129410933.00 ns, 12.9411 us/op
+WorkloadActual  10: 10000 op, 141965255.00 ns, 14.1965 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 128624239.00 ns, 12.8624 us/op
+WorkloadResult   2: 10000 op, 131000983.00 ns, 13.1001 us/op
+WorkloadResult   3: 10000 op, 130594862.00 ns, 13.0595 us/op
+WorkloadResult   4: 10000 op, 129454945.00 ns, 12.9455 us/op
+WorkloadResult   5: 10000 op, 127720164.00 ns, 12.7720 us/op
+WorkloadResult   6: 10000 op, 129806785.00 ns, 12.9807 us/op
+WorkloadResult   7: 10000 op, 128696664.00 ns, 12.8697 us/op
+WorkloadResult   8: 10000 op, 129757322.00 ns, 12.9757 us/op
+WorkloadResult   9: 10000 op, 129394322.00 ns, 12.9394 us/op
+// GC:  18 0 0 313925792 10000
+// Threading:  1 0 10000
+
+// AfterAll
+// Benchmark Process 5263 has exited with code 0.
+
+Mean = 12.945 μs, StdErr = 0.034 μs (0.26%), N = 9, StdDev = 0.101 μs
+Min = 12.772 μs, Q1 = 12.870 μs, Median = 12.945 μs, Q3 = 12.981 μs, Max = 13.100 μs
+IQR = 0.111 μs, LowerFence = 12.703 μs, UpperFence = 13.147 μs
+ConfidenceInterval = [12.775 μs; 13.115 μs] (CI 99.9%), Margin = 0.170 μs (1.31% of Mean)
+Skewness = -0.09, Kurtosis = 1.83, MValue = 2
+
+// ** Remained 7 (58.3 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Parallel_02_Baubit_Async(OperationCount: 100)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 5 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 213851.00 ns, 13.3657 us/op
+WorkloadJitting  1: 16 op, 3034378.00 ns, 189.6486 us/op
+
+OverheadWarmup   1: 10000 op, 28153.00 ns, 2.8153 ns/op
+OverheadWarmup   2: 10000 op, 27832.00 ns, 2.7832 ns/op
+OverheadWarmup   3: 10000 op, 27602.00 ns, 2.7602 ns/op
+OverheadWarmup   4: 10000 op, 27832.00 ns, 2.7832 ns/op
+OverheadWarmup   5: 10000 op, 16641.00 ns, 1.6641 ns/op
+OverheadWarmup   6: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadWarmup   7: 10000 op, 16561.00 ns, 1.6561 ns/op
+OverheadWarmup   8: 10000 op, 16571.00 ns, 1.6571 ns/op
+OverheadWarmup   9: 10000 op, 16621.00 ns, 1.6621 ns/op
+OverheadWarmup  10: 10000 op, 16581.00 ns, 1.6581 ns/op
+
+OverheadActual   1: 10000 op, 16631.00 ns, 1.6631 ns/op
+OverheadActual   2: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual   3: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual   4: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual   5: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadActual   6: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual   7: 10000 op, 16621.00 ns, 1.6621 ns/op
+OverheadActual   8: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual   9: 10000 op, 16571.00 ns, 1.6571 ns/op
+OverheadActual  10: 10000 op, 16622.00 ns, 1.6622 ns/op
+OverheadActual  11: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual  12: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadActual  13: 10000 op, 16541.00 ns, 1.6541 ns/op
+OverheadActual  14: 10000 op, 16621.00 ns, 1.6621 ns/op
+OverheadActual  15: 10000 op, 16621.00 ns, 1.6621 ns/op
+
+WorkloadWarmup   1: 10000 op, 277999451.00 ns, 27.7999 us/op
+WorkloadWarmup   2: 10000 op, 183812701.00 ns, 18.3813 us/op
+WorkloadWarmup   3: 10000 op, 71569297.00 ns, 7.1569 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 69744186.00 ns, 6.9744 us/op
+WorkloadActual   2: 10000 op, 83570792.00 ns, 8.3571 us/op
+WorkloadActual   3: 10000 op, 69860354.00 ns, 6.9860 us/op
+WorkloadActual   4: 10000 op, 69627467.00 ns, 6.9627 us/op
+WorkloadActual   5: 10000 op, 69461496.00 ns, 6.9461 us/op
+WorkloadActual   6: 10000 op, 70070588.00 ns, 7.0071 us/op
+WorkloadActual   7: 10000 op, 68868996.00 ns, 6.8869 us/op
+WorkloadActual   8: 10000 op, 71778058.00 ns, 7.1778 us/op
+WorkloadActual   9: 10000 op, 73259294.00 ns, 7.3259 us/op
+WorkloadActual  10: 10000 op, 71178935.00 ns, 7.1179 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 69727585.00 ns, 6.9728 us/op
+WorkloadResult   2: 10000 op, 69843753.00 ns, 6.9844 us/op
+WorkloadResult   3: 10000 op, 69610866.00 ns, 6.9611 us/op
+WorkloadResult   4: 10000 op, 69444895.00 ns, 6.9445 us/op
+WorkloadResult   5: 10000 op, 70053987.00 ns, 7.0054 us/op
+WorkloadResult   6: 10000 op, 68852395.00 ns, 6.8852 us/op
+WorkloadResult   7: 10000 op, 71761457.00 ns, 7.1761 us/op
+WorkloadResult   8: 10000 op, 73242693.00 ns, 7.3243 us/op
+WorkloadResult   9: 10000 op, 71162334.00 ns, 7.1162 us/op
+// GC:  7 0 0 121920000 10000
+// Threading:  0 0 10000
+
+// AfterAll
+// Benchmark Process 5276 has exited with code 0.
+
+Mean = 7.041 μs, StdErr = 0.046 μs (0.66%), N = 9, StdDev = 0.138 μs
+Min = 6.885 μs, Q1 = 6.961 μs, Median = 6.984 μs, Q3 = 7.116 μs, Max = 7.324 μs
+IQR = 0.155 μs, LowerFence = 6.728 μs, UpperFence = 7.349 μs
+ConfidenceInterval = [6.809 μs; 7.274 μs] (CI 99.9%), Margin = 0.233 μs (3.30% of Mean)
+Skewness = 0.83, Kurtosis = 2.28, MValue = 2
+
+// ** Remained 6 (50.0 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'MediatR: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Notify_01_MediatR(OperationCount: 1000)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 6 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 209933.00 ns, 13.1208 us/op
+WorkloadJitting  1: 16 op, 4182400.00 ns, 261.4000 us/op
+
+OverheadWarmup   1: 10000 op, 28012.00 ns, 2.8012 ns/op
+OverheadWarmup   2: 10000 op, 27671.00 ns, 2.7671 ns/op
+OverheadWarmup   3: 10000 op, 27341.00 ns, 2.7341 ns/op
+OverheadWarmup   4: 10000 op, 27482.00 ns, 2.7482 ns/op
+OverheadWarmup   5: 10000 op, 27863.00 ns, 2.7863 ns/op
+OverheadWarmup   6: 10000 op, 27090.00 ns, 2.7090 ns/op
+OverheadWarmup   7: 10000 op, 27571.00 ns, 2.7571 ns/op
+OverheadWarmup   8: 10000 op, 27391.00 ns, 2.7391 ns/op
+
+OverheadActual   1: 10000 op, 27983.00 ns, 2.7983 ns/op
+OverheadActual   2: 10000 op, 27922.00 ns, 2.7922 ns/op
+OverheadActual   3: 10000 op, 47229.00 ns, 4.7229 ns/op
+OverheadActual   4: 10000 op, 27200.00 ns, 2.7200 ns/op
+OverheadActual   5: 10000 op, 27301.00 ns, 2.7301 ns/op
+OverheadActual   6: 10000 op, 27011.00 ns, 2.7011 ns/op
+OverheadActual   7: 10000 op, 27271.00 ns, 2.7271 ns/op
+OverheadActual   8: 10000 op, 27201.00 ns, 2.7201 ns/op
+OverheadActual   9: 10000 op, 28524.00 ns, 2.8524 ns/op
+OverheadActual  10: 10000 op, 28062.00 ns, 2.8062 ns/op
+OverheadActual  11: 10000 op, 28754.00 ns, 2.8754 ns/op
+OverheadActual  12: 10000 op, 28454.00 ns, 2.8454 ns/op
+OverheadActual  13: 10000 op, 28684.00 ns, 2.8684 ns/op
+OverheadActual  14: 10000 op, 28734.00 ns, 2.8734 ns/op
+OverheadActual  15: 10000 op, 28524.00 ns, 2.8524 ns/op
+
+WorkloadWarmup   1: 10000 op, 11355174.00 ns, 1.1355 us/op
+WorkloadWarmup   2: 10000 op, 11294110.00 ns, 1.1294 us/op
+WorkloadWarmup   3: 10000 op, 11136744.00 ns, 1.1137 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 11287196.00 ns, 1.1287 us/op
+WorkloadActual   2: 10000 op, 11183732.00 ns, 1.1184 us/op
+WorkloadActual   3: 10000 op, 11226643.00 ns, 1.1227 us/op
+WorkloadActual   4: 10000 op, 11016950.00 ns, 1.1017 us/op
+WorkloadActual   5: 10000 op, 11164697.00 ns, 1.1165 us/op
+WorkloadActual   6: 10000 op, 11033131.00 ns, 1.1033 us/op
+WorkloadActual   7: 10000 op, 11135161.00 ns, 1.1135 us/op
+WorkloadActual   8: 10000 op, 11116496.00 ns, 1.1116 us/op
+WorkloadActual   9: 10000 op, 11121736.00 ns, 1.1122 us/op
+WorkloadActual  10: 10000 op, 10991602.00 ns, 1.0992 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 11259134.00 ns, 1.1259 us/op
+WorkloadResult   2: 10000 op, 11155670.00 ns, 1.1156 us/op
+WorkloadResult   3: 10000 op, 11198581.00 ns, 1.1199 us/op
+WorkloadResult   4: 10000 op, 10988888.00 ns, 1.0989 us/op
+WorkloadResult   5: 10000 op, 11136635.00 ns, 1.1137 us/op
+WorkloadResult   6: 10000 op, 11005069.00 ns, 1.1005 us/op
+WorkloadResult   7: 10000 op, 11107099.00 ns, 1.1107 us/op
+WorkloadResult   8: 10000 op, 11088434.00 ns, 1.1088 us/op
+WorkloadResult   9: 10000 op, 11093674.00 ns, 1.1094 us/op
+WorkloadResult  10: 10000 op, 10963540.00 ns, 1.0964 us/op
+// GC:  0 0 0 2885672 10000
+// Threading:  1 0 10000
+
+// AfterAll
+// Benchmark Process 5288 has exited with code 0.
+
+Mean = 1.110 μs, StdErr = 0.003 μs (0.27%), N = 10, StdDev = 0.009 μs
+Min = 1.096 μs, Q1 = 1.103 μs, Median = 1.110 μs, Q3 = 1.115 μs, Max = 1.126 μs
+IQR = 0.013 μs, LowerFence = 1.084 μs, UpperFence = 1.134 μs
+ConfidenceInterval = [1.096 μs; 1.124 μs] (CI 99.9%), Margin = 0.014 μs (1.28% of Mean)
+Skewness = 0.06, Kurtosis = 1.69, MValue = 2
+
+// ** Remained 5 (41.7 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'Baubit: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Notify_02_Baubit(OperationCount: 1000)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 7 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 372819.00 ns, 23.3012 us/op
+WorkloadJitting  1: 16 op, 1322258.00 ns, 82.6411 us/op
+
+OverheadWarmup   1: 10000 op, 30096.00 ns, 3.0096 ns/op
+OverheadWarmup   2: 10000 op, 29706.00 ns, 2.9706 ns/op
+OverheadWarmup   3: 10000 op, 29565.00 ns, 2.9565 ns/op
+OverheadWarmup   4: 10000 op, 30056.00 ns, 3.0056 ns/op
+OverheadWarmup   5: 10000 op, 29696.00 ns, 2.9696 ns/op
+OverheadWarmup   6: 10000 op, 29586.00 ns, 2.9586 ns/op
+OverheadWarmup   7: 10000 op, 29936.00 ns, 2.9936 ns/op
+OverheadWarmup   8: 10000 op, 29645.00 ns, 2.9645 ns/op
+
+OverheadActual   1: 10000 op, 29866.00 ns, 2.9866 ns/op
+OverheadActual   2: 10000 op, 29805.00 ns, 2.9805 ns/op
+OverheadActual   3: 10000 op, 29866.00 ns, 2.9866 ns/op
+OverheadActual   4: 10000 op, 29606.00 ns, 2.9606 ns/op
+OverheadActual   5: 10000 op, 29826.00 ns, 2.9826 ns/op
+OverheadActual   6: 10000 op, 29866.00 ns, 2.9866 ns/op
+OverheadActual   7: 10000 op, 29505.00 ns, 2.9505 ns/op
+OverheadActual   8: 10000 op, 29716.00 ns, 2.9716 ns/op
+OverheadActual   9: 10000 op, 29705.00 ns, 2.9705 ns/op
+OverheadActual  10: 10000 op, 30037.00 ns, 3.0037 ns/op
+OverheadActual  11: 10000 op, 29766.00 ns, 2.9766 ns/op
+OverheadActual  12: 10000 op, 30156.00 ns, 3.0156 ns/op
+OverheadActual  13: 10000 op, 30377.00 ns, 3.0377 ns/op
+OverheadActual  14: 10000 op, 30407.00 ns, 3.0407 ns/op
+OverheadActual  15: 10000 op, 30016.00 ns, 3.0016 ns/op
+
+WorkloadWarmup   1: 10000 op, 3321435.00 ns, 332.1435 ns/op
+WorkloadWarmup   2: 10000 op, 3362903.00 ns, 336.2903 ns/op
+WorkloadWarmup   3: 10000 op, 3055307.00 ns, 305.5307 ns/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 3043745.00 ns, 304.3745 ns/op
+WorkloadActual   2: 10000 op, 3000735.00 ns, 300.0735 ns/op
+WorkloadActual   3: 10000 op, 3004562.00 ns, 300.4562 ns/op
+WorkloadActual   4: 10000 op, 2979795.00 ns, 297.9795 ns/op
+WorkloadActual   5: 10000 op, 2942185.00 ns, 294.2185 ns/op
+WorkloadActual   6: 10000 op, 2916346.00 ns, 291.6346 ns/op
+WorkloadActual   7: 10000 op, 2944690.00 ns, 294.4690 ns/op
+WorkloadActual   8: 10000 op, 2939840.00 ns, 293.9840 ns/op
+WorkloadActual   9: 10000 op, 2918020.00 ns, 291.8020 ns/op
+WorkloadActual  10: 10000 op, 2900948.00 ns, 290.0948 ns/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 3013879.00 ns, 301.3879 ns/op
+WorkloadResult   2: 10000 op, 2970869.00 ns, 297.0869 ns/op
+WorkloadResult   3: 10000 op, 2974696.00 ns, 297.4696 ns/op
+WorkloadResult   4: 10000 op, 2949929.00 ns, 294.9929 ns/op
+WorkloadResult   5: 10000 op, 2912319.00 ns, 291.2319 ns/op
+WorkloadResult   6: 10000 op, 2886480.00 ns, 288.6480 ns/op
+WorkloadResult   7: 10000 op, 2914824.00 ns, 291.4824 ns/op
+WorkloadResult   8: 10000 op, 2909974.00 ns, 290.9974 ns/op
+WorkloadResult   9: 10000 op, 2888154.00 ns, 288.8154 ns/op
+WorkloadResult  10: 10000 op, 2871082.00 ns, 287.1082 ns/op
+// GC:  0 0 0 640000 10000
+// Threading:  0 0 10000
+
+// AfterAll
+// Benchmark Process 5300 has exited with code 0.
+
+Mean = 292.922 ns, StdErr = 1.459 ns (0.50%), N = 10, StdDev = 4.613 ns
+Min = 287.108 ns, Q1 = 289.361 ns, Median = 291.357 ns, Q3 = 296.563 ns, Max = 301.388 ns
+IQR = 7.202 ns, LowerFence = 278.557 ns, UpperFence = 307.367 ns
+ConfidenceInterval = [285.947 ns; 299.897 ns] (CI 99.9%), Margin = 6.975 ns (2.38% of Mean)
+Skewness = 0.43, Kurtosis = 1.69, MValue = 2
+
+// ** Remained 4 (33.3 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'MediatR: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Simple_01_MediatR(OperationCount: 1000)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 8 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 532338.00 ns, 33.2711 us/op
+WorkloadJitting  1: 16 op, 3785115.00 ns, 236.5697 us/op
+
+OverheadWarmup   1: 10000 op, 36588.00 ns, 3.6588 ns/op
+OverheadWarmup   2: 10000 op, 36588.00 ns, 3.6588 ns/op
+OverheadWarmup   3: 10000 op, 36548.00 ns, 3.6548 ns/op
+OverheadWarmup   4: 10000 op, 36559.00 ns, 3.6559 ns/op
+OverheadWarmup   5: 10000 op, 36629.00 ns, 3.6629 ns/op
+OverheadWarmup   6: 10000 op, 36549.00 ns, 3.6549 ns/op
+
+OverheadActual   1: 10000 op, 36579.00 ns, 3.6579 ns/op
+OverheadActual   2: 10000 op, 36568.00 ns, 3.6568 ns/op
+OverheadActual   3: 10000 op, 36579.00 ns, 3.6579 ns/op
+OverheadActual   4: 10000 op, 36539.00 ns, 3.6539 ns/op
+OverheadActual   5: 10000 op, 36549.00 ns, 3.6549 ns/op
+OverheadActual   6: 10000 op, 36559.00 ns, 3.6559 ns/op
+OverheadActual   7: 10000 op, 36559.00 ns, 3.6559 ns/op
+OverheadActual   8: 10000 op, 36569.00 ns, 3.6569 ns/op
+OverheadActual   9: 10000 op, 36568.00 ns, 3.6568 ns/op
+OverheadActual  10: 10000 op, 36569.00 ns, 3.6569 ns/op
+OverheadActual  11: 10000 op, 36529.00 ns, 3.6529 ns/op
+OverheadActual  12: 10000 op, 36598.00 ns, 3.6598 ns/op
+OverheadActual  13: 10000 op, 37320.00 ns, 3.7320 ns/op
+OverheadActual  14: 10000 op, 36548.00 ns, 3.6548 ns/op
+OverheadActual  15: 10000 op, 36529.00 ns, 3.6529 ns/op
+
+WorkloadWarmup   1: 10000 op, 11433891.00 ns, 1.1434 us/op
+WorkloadWarmup   2: 10000 op, 11294550.00 ns, 1.1295 us/op
+WorkloadWarmup   3: 10000 op, 11398545.00 ns, 1.1399 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 11514883.00 ns, 1.1515 us/op
+WorkloadActual   2: 10000 op, 11152945.00 ns, 1.1153 us/op
+WorkloadActual   3: 10000 op, 11300020.00 ns, 1.1300 us/op
+WorkloadActual   4: 10000 op, 11163284.00 ns, 1.1163 us/op
+WorkloadActual   5: 10000 op, 11354082.00 ns, 1.1354 us/op
+WorkloadActual   6: 10000 op, 11191247.00 ns, 1.1191 us/op
+WorkloadActual   7: 10000 op, 11312364.00 ns, 1.1312 us/op
+WorkloadActual   8: 10000 op, 11145862.00 ns, 1.1146 us/op
+WorkloadActual   9: 10000 op, 11231322.00 ns, 1.1231 us/op
+WorkloadActual  10: 10000 op, 11226873.00 ns, 1.1227 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 11478315.00 ns, 1.1478 us/op
+WorkloadResult   2: 10000 op, 11116377.00 ns, 1.1116 us/op
+WorkloadResult   3: 10000 op, 11263452.00 ns, 1.1263 us/op
+WorkloadResult   4: 10000 op, 11126716.00 ns, 1.1127 us/op
+WorkloadResult   5: 10000 op, 11317514.00 ns, 1.1318 us/op
+WorkloadResult   6: 10000 op, 11154679.00 ns, 1.1155 us/op
+WorkloadResult   7: 10000 op, 11275796.00 ns, 1.1276 us/op
+WorkloadResult   8: 10000 op, 11109294.00 ns, 1.1109 us/op
+WorkloadResult   9: 10000 op, 11194754.00 ns, 1.1195 us/op
+WorkloadResult  10: 10000 op, 11190305.00 ns, 1.1190 us/op
+// GC:  0 0 0 3605792 10000
+// Threading:  1 0 10000
+
+// AfterAll
+// Benchmark Process 5311 has exited with code 0.
+
+Mean = 1.122 μs, StdErr = 0.004 μs (0.32%), N = 10, StdDev = 0.011 μs
+Min = 1.111 μs, Q1 = 1.113 μs, Median = 1.119 μs, Q3 = 1.127 μs, Max = 1.148 μs
+IQR = 0.014 μs, LowerFence = 1.093 μs, UpperFence = 1.148 μs
+ConfidenceInterval = [1.105 μs; 1.140 μs] (CI 99.9%), Margin = 0.017 μs (1.55% of Mean)
+Skewness = 0.91, Kurtosis = 2.74, MValue = 2
+
+// ** Remained 3 (25.0 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'Baubit: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Simple_02_Baubit_Async(OperationCount: 1000)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 9 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 534432.00 ns, 33.4020 us/op
+WorkloadJitting  1: 16 op, 2623578.00 ns, 163.9736 us/op
+
+OverheadWarmup   1: 10000 op, 51978.00 ns, 5.1978 ns/op
+OverheadWarmup   2: 10000 op, 48611.00 ns, 4.8611 ns/op
+OverheadWarmup   3: 10000 op, 48321.00 ns, 4.8321 ns/op
+OverheadWarmup   4: 10000 op, 48240.00 ns, 4.8240 ns/op
+OverheadWarmup   5: 10000 op, 47970.00 ns, 4.7970 ns/op
+OverheadWarmup   6: 10000 op, 48040.00 ns, 4.8040 ns/op
+OverheadWarmup   7: 10000 op, 47920.00 ns, 4.7920 ns/op
+OverheadWarmup   8: 10000 op, 48511.00 ns, 4.8511 ns/op
+OverheadWarmup   9: 10000 op, 47830.00 ns, 4.7830 ns/op
+
+OverheadActual   1: 10000 op, 48231.00 ns, 4.8231 ns/op
+OverheadActual   2: 10000 op, 49142.00 ns, 4.9142 ns/op
+OverheadActual   3: 10000 op, 48952.00 ns, 4.8952 ns/op
+OverheadActual   4: 10000 op, 48682.00 ns, 4.8682 ns/op
+OverheadActual   5: 10000 op, 48140.00 ns, 4.8140 ns/op
+OverheadActual   6: 10000 op, 48992.00 ns, 4.8992 ns/op
+OverheadActual   7: 10000 op, 48141.00 ns, 4.8141 ns/op
+OverheadActual   8: 10000 op, 48141.00 ns, 4.8141 ns/op
+OverheadActual   9: 10000 op, 47880.00 ns, 4.7880 ns/op
+OverheadActual  10: 10000 op, 47710.00 ns, 4.7710 ns/op
+OverheadActual  11: 10000 op, 47088.00 ns, 4.7088 ns/op
+OverheadActual  12: 10000 op, 49633.00 ns, 4.9633 ns/op
+OverheadActual  13: 10000 op, 47870.00 ns, 4.7870 ns/op
+OverheadActual  14: 10000 op, 47830.00 ns, 4.7830 ns/op
+OverheadActual  15: 10000 op, 47158.00 ns, 4.7158 ns/op
+
+WorkloadWarmup   1: 10000 op, 4197518.00 ns, 419.7518 ns/op
+WorkloadWarmup   2: 10000 op, 4004486.00 ns, 400.4486 ns/op
+WorkloadWarmup   3: 10000 op, 3300997.00 ns, 330.0997 ns/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 3296037.00 ns, 329.6037 ns/op
+WorkloadActual   2: 10000 op, 3272924.00 ns, 327.2924 ns/op
+WorkloadActual   3: 10000 op, 3264729.00 ns, 326.4729 ns/op
+WorkloadActual   4: 10000 op, 3269619.00 ns, 326.9619 ns/op
+WorkloadActual   5: 10000 op, 3277774.00 ns, 327.7774 ns/op
+WorkloadActual   6: 10000 op, 3264258.00 ns, 326.4258 ns/op
+WorkloadActual   7: 10000 op, 3271722.00 ns, 327.1722 ns/op
+WorkloadActual   8: 10000 op, 3249902.00 ns, 324.9902 ns/op
+WorkloadActual   9: 10000 op, 4063497.00 ns, 406.3497 ns/op
+WorkloadActual  10: 10000 op, 3263658.00 ns, 326.3658 ns/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 3224783.00 ns, 322.4783 ns/op
+WorkloadResult   2: 10000 op, 3216588.00 ns, 321.6588 ns/op
+WorkloadResult   3: 10000 op, 3221478.00 ns, 322.1478 ns/op
+WorkloadResult   4: 10000 op, 3229633.00 ns, 322.9633 ns/op
+WorkloadResult   5: 10000 op, 3216117.00 ns, 321.6117 ns/op
+WorkloadResult   6: 10000 op, 3223581.00 ns, 322.3581 ns/op
+WorkloadResult   7: 10000 op, 3201761.00 ns, 320.1761 ns/op
+WorkloadResult   8: 10000 op, 3215517.00 ns, 321.5517 ns/op
+// GC:  0 0 0 1680000 10000
+// Threading:  0 0 10000
+
+// AfterAll
+// Benchmark Process 5323 has exited with code 0.
+
+Mean = 321.868 ns, StdErr = 0.298 ns (0.09%), N = 8, StdDev = 0.842 ns
+Min = 320.176 ns, Q1 = 321.597 ns, Median = 321.903 ns, Q3 = 322.388 ns, Max = 322.963 ns
+IQR = 0.791 ns, LowerFence = 320.410 ns, UpperFence = 323.575 ns
+ConfidenceInterval = [320.258 ns; 323.478 ns] (CI 99.9%), Margin = 1.610 ns (0.50% of Mean)
+Skewness = -0.67, Kurtosis = 2.45, MValue = 2
+
+// ** Remained 2 (16.7 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Parallel_01_MediatR(OperationCount: 1000)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 10 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 199694.00 ns, 12.4809 us/op
+WorkloadJitting  1: 16 op, 19235374.00 ns, 1.2022 ms/op
+
+OverheadWarmup   1: 10000 op, 28072.00 ns, 2.8072 ns/op
+OverheadWarmup   2: 10000 op, 27812.00 ns, 2.7812 ns/op
+OverheadWarmup   3: 10000 op, 27983.00 ns, 2.7983 ns/op
+OverheadWarmup   4: 10000 op, 27542.00 ns, 2.7542 ns/op
+OverheadWarmup   5: 10000 op, 27652.00 ns, 2.7652 ns/op
+OverheadWarmup   6: 10000 op, 27521.00 ns, 2.7521 ns/op
+
+OverheadActual   1: 10000 op, 27912.00 ns, 2.7912 ns/op
+OverheadActual   2: 10000 op, 28153.00 ns, 2.8153 ns/op
+OverheadActual   3: 10000 op, 27632.00 ns, 2.7632 ns/op
+OverheadActual   4: 10000 op, 27782.00 ns, 2.7782 ns/op
+OverheadActual   5: 10000 op, 28103.00 ns, 2.8103 ns/op
+OverheadActual   6: 10000 op, 27642.00 ns, 2.7642 ns/op
+OverheadActual   7: 10000 op, 27772.00 ns, 2.7772 ns/op
+OverheadActual   8: 10000 op, 28223.00 ns, 2.8223 ns/op
+OverheadActual   9: 10000 op, 27492.00 ns, 2.7492 ns/op
+OverheadActual  10: 10000 op, 27492.00 ns, 2.7492 ns/op
+OverheadActual  11: 10000 op, 27492.00 ns, 2.7492 ns/op
+OverheadActual  12: 10000 op, 27631.00 ns, 2.7631 ns/op
+OverheadActual  13: 10000 op, 27481.00 ns, 2.7481 ns/op
+OverheadActual  14: 10000 op, 27742.00 ns, 2.7742 ns/op
+OverheadActual  15: 10000 op, 27431.00 ns, 2.7431 ns/op
+
+WorkloadWarmup   1: 10000 op, 1548347041.00 ns, 154.8347 us/op
+WorkloadWarmup   2: 10000 op, 1248275176.00 ns, 124.8275 us/op
+WorkloadWarmup   3: 10000 op, 1254248864.00 ns, 125.4249 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 1240681500.00 ns, 124.0682 us/op
+WorkloadActual   2: 10000 op, 1261014755.00 ns, 126.1015 us/op
+WorkloadActual   3: 10000 op, 1250657649.00 ns, 125.0658 us/op
+WorkloadActual   4: 10000 op, 1270405762.00 ns, 127.0406 us/op
+WorkloadActual   5: 10000 op, 1242943201.00 ns, 124.2943 us/op
+WorkloadActual   6: 10000 op, 1252624941.00 ns, 125.2625 us/op
+WorkloadActual   7: 10000 op, 1241624166.00 ns, 124.1624 us/op
+WorkloadActual   8: 10000 op, 1259392687.00 ns, 125.9393 us/op
+WorkloadActual   9: 10000 op, 1240184723.00 ns, 124.0185 us/op
+WorkloadActual  10: 10000 op, 1241992572.00 ns, 124.1993 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 1240653858.00 ns, 124.0654 us/op
+WorkloadResult   2: 10000 op, 1260987113.00 ns, 126.0987 us/op
+WorkloadResult   3: 10000 op, 1250630007.00 ns, 125.0630 us/op
+WorkloadResult   4: 10000 op, 1270378120.00 ns, 127.0378 us/op
+WorkloadResult   5: 10000 op, 1242915559.00 ns, 124.2916 us/op
+WorkloadResult   6: 10000 op, 1252597299.00 ns, 125.2597 us/op
+WorkloadResult   7: 10000 op, 1241596524.00 ns, 124.1597 us/op
+WorkloadResult   8: 10000 op, 1259365045.00 ns, 125.9365 us/op
+WorkloadResult   9: 10000 op, 1240157081.00 ns, 124.0157 us/op
+WorkloadResult  10: 10000 op, 1241964930.00 ns, 124.1965 us/op
+// GC:  186 54 0 3121925792 10000
+// Threading:  2 0 10000
+
+// AfterAll
+// Benchmark Process 5335 has exited with code 0.
+
+Mean = 125.012 μs, StdErr = 0.333 μs (0.27%), N = 10, StdDev = 1.054 μs
+Min = 124.016 μs, Q1 = 124.169 μs, Median = 124.677 μs, Q3 = 125.767 μs, Max = 127.038 μs
+IQR = 1.598 μs, LowerFence = 121.771 μs, UpperFence = 128.165 μs
+ConfidenceInterval = [123.419 μs; 126.606 μs] (CI 99.9%), Margin = 1.594 μs (1.27% of Mean)
+Skewness = 0.6, Kurtosis = 1.78, MValue = 2
+
+// ** Remained 1 (8.3 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// **************************
+// Benchmark: MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet Baubit.Mediation.Benchmark-Job-VAIYHK-1.dll --anonymousPipes 163 164 --benchmarkName "Baubit.Mediation.Benchmark.MediatorBenchmarks.Parallel_02_Baubit_Async(OperationCount: 1000)" --job "InvocationCount=10000, IterationCount=10, WarmupCount=3" --benchmarkId 11 in /home/runner/work/Baubit.Mediation/Baubit.Mediation/Baubit.Mediation.Benchmark/bin/Release/net9.0/Baubit.Mediation.Benchmark-Job-VAIYHK-1/bin/Release/net9.0
+// Failed to set up high priority (Permission denied). In order to run benchmarks with high priority, make sure you have the right permissions.
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.6
+// Runtime=.NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3)
+
+OverheadJitting  1: 16 op, 228709.00 ns, 14.2943 us/op
+WorkloadJitting  1: 16 op, 8082275.00 ns, 505.1422 us/op
+
+OverheadWarmup   1: 10000 op, 28563.00 ns, 2.8563 ns/op
+OverheadWarmup   2: 10000 op, 27531.00 ns, 2.7531 ns/op
+OverheadWarmup   3: 10000 op, 27331.00 ns, 2.7331 ns/op
+OverheadWarmup   4: 10000 op, 27592.00 ns, 2.7592 ns/op
+OverheadWarmup   5: 10000 op, 27983.00 ns, 2.7983 ns/op
+OverheadWarmup   6: 10000 op, 27842.00 ns, 2.7842 ns/op
+OverheadWarmup   7: 10000 op, 27852.00 ns, 2.7852 ns/op
+OverheadWarmup   8: 10000 op, 27982.00 ns, 2.7982 ns/op
+OverheadWarmup   9: 10000 op, 27772.00 ns, 2.7772 ns/op
+
+OverheadActual   1: 10000 op, 27582.00 ns, 2.7582 ns/op
+OverheadActual   2: 10000 op, 27712.00 ns, 2.7712 ns/op
+OverheadActual   3: 10000 op, 27581.00 ns, 2.7581 ns/op
+OverheadActual   4: 10000 op, 27762.00 ns, 2.7762 ns/op
+OverheadActual   5: 10000 op, 27081.00 ns, 2.7081 ns/op
+OverheadActual   6: 10000 op, 18805.00 ns, 1.8805 ns/op
+OverheadActual   7: 10000 op, 16541.00 ns, 1.6541 ns/op
+OverheadActual   8: 10000 op, 16531.00 ns, 1.6531 ns/op
+OverheadActual   9: 10000 op, 16541.00 ns, 1.6541 ns/op
+OverheadActual  10: 10000 op, 16551.00 ns, 1.6551 ns/op
+OverheadActual  11: 10000 op, 16592.00 ns, 1.6592 ns/op
+OverheadActual  12: 10000 op, 16551.00 ns, 1.6551 ns/op
+OverheadActual  13: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual  14: 10000 op, 16611.00 ns, 1.6611 ns/op
+OverheadActual  15: 10000 op, 16581.00 ns, 1.6581 ns/op
+OverheadActual  16: 10000 op, 16641.00 ns, 1.6641 ns/op
+OverheadActual  17: 10000 op, 16591.00 ns, 1.6591 ns/op
+OverheadActual  18: 10000 op, 16601.00 ns, 1.6601 ns/op
+OverheadActual  19: 10000 op, 16631.00 ns, 1.6631 ns/op
+OverheadActual  20: 10000 op, 16611.00 ns, 1.6611 ns/op
+
+WorkloadWarmup   1: 10000 op, 862624706.00 ns, 86.2625 us/op
+WorkloadWarmup   2: 10000 op, 617395341.00 ns, 61.7395 us/op
+WorkloadWarmup   3: 10000 op, 622142376.00 ns, 62.2142 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 10000 op, 618544640.00 ns, 61.8545 us/op
+WorkloadActual   2: 10000 op, 613911938.00 ns, 61.3912 us/op
+WorkloadActual   3: 10000 op, 616252106.00 ns, 61.6252 us/op
+WorkloadActual   4: 10000 op, 619912250.00 ns, 61.9912 us/op
+WorkloadActual   5: 10000 op, 618359864.00 ns, 61.8360 us/op
+WorkloadActual   6: 10000 op, 614359888.00 ns, 61.4360 us/op
+WorkloadActual   7: 10000 op, 607730195.00 ns, 60.7730 us/op
+WorkloadActual   8: 10000 op, 609768995.00 ns, 60.9769 us/op
+WorkloadActual   9: 10000 op, 608785563.00 ns, 60.8786 us/op
+WorkloadActual  10: 10000 op, 612457679.00 ns, 61.2458 us/op
+
+// AfterActualRun
+WorkloadResult   1: 10000 op, 618528034.00 ns, 61.8528 us/op
+WorkloadResult   2: 10000 op, 613895332.00 ns, 61.3895 us/op
+WorkloadResult   3: 10000 op, 616235500.00 ns, 61.6236 us/op
+WorkloadResult   4: 10000 op, 619895644.00 ns, 61.9896 us/op
+WorkloadResult   5: 10000 op, 618343258.00 ns, 61.8343 us/op
+WorkloadResult   6: 10000 op, 614343282.00 ns, 61.4343 us/op
+WorkloadResult   7: 10000 op, 607713589.00 ns, 60.7714 us/op
+WorkloadResult   8: 10000 op, 609752389.00 ns, 60.9752 us/op
+WorkloadResult   9: 10000 op, 608768957.00 ns, 60.8769 us/op
+WorkloadResult  10: 10000 op, 612441073.00 ns, 61.2441 us/op
+// GC:  71 18 0 1201920000 10000
+// Threading:  0 0 10000
+
+// AfterAll
+// Benchmark Process 5357 has exited with code 0.
+
+Mean = 61.399 μs, StdErr = 0.136 μs (0.22%), N = 10, StdDev = 0.430 μs
+Min = 60.771 μs, Q1 = 61.042 μs, Median = 61.412 μs, Q3 = 61.782 μs, Max = 61.990 μs
+IQR = 0.739 μs, LowerFence = 59.934 μs, UpperFence = 62.890 μs
+ConfidenceInterval = [60.749 μs; 62.050 μs] (CI 99.9%), Margin = 0.650 μs (1.06% of Mean)
+Skewness = -0.1, Kurtosis = 1.36, MValue = 2
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-01-12 1:04 (0h 0m from now) **
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  BenchmarkDotNet.Artifacts/results/Baubit.Mediation.Benchmark.MediatorBenchmarks-report.csv
+  BenchmarkDotNet.Artifacts/results/Baubit.Mediation.Benchmark.MediatorBenchmarks-report-github.md
+  BenchmarkDotNet.Artifacts/results/Baubit.Mediation.Benchmark.MediatorBenchmarks-report.html
+
+// * Detailed results *
+MediatorBenchmarks.'MediatR: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 1.238 μs, StdErr = 0.068 μs (5.51%), N = 10, StdDev = 0.216 μs
+Min = 1.066 μs, Q1 = 1.074 μs, Median = 1.085 μs, Q3 = 1.420 μs, Max = 1.560 μs
+IQR = 0.345 μs, LowerFence = 0.556 μs, UpperFence = 1.938 μs
+ConfidenceInterval = [0.912 μs; 1.564 μs] (CI 99.9%), Margin = 0.326 μs (26.33% of Mean)
+Skewness = 0.5, Kurtosis = 1.24, MValue = 3.33
+-------------------- Histogram --------------------
+[0.935 μs ; 1.210 μs) | @@@@@@
+[1.210 μs ; 1.334 μs) | 
+[1.334 μs ; 1.597 μs) | @@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'Baubit: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 305.293 ns, StdErr = 1.469 ns (0.48%), N = 9, StdDev = 4.406 ns
+Min = 298.549 ns, Q1 = 302.683 ns, Median = 305.006 ns, Q3 = 307.584 ns, Max = 312.098 ns
+IQR = 4.900 ns, LowerFence = 295.333 ns, UpperFence = 314.934 ns
+ConfidenceInterval = [297.890 ns; 312.696 ns] (CI 99.9%), Margin = 7.403 ns (2.42% of Mean)
+Skewness = 0.08, Kurtosis = 1.6, MValue = 2
+-------------------- Histogram --------------------
+[295.769 ns ; 308.185 ns) | @@@@@@@
+[308.185 ns ; 314.878 ns) | @@
+---------------------------------------------------
+
+MediatorBenchmarks.'MediatR: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 1.140 μs, StdErr = 0.002 μs (0.21%), N = 10, StdDev = 0.008 μs
+Min = 1.131 μs, Q1 = 1.133 μs, Median = 1.139 μs, Q3 = 1.143 μs, Max = 1.153 μs
+IQR = 0.011 μs, LowerFence = 1.117 μs, UpperFence = 1.159 μs
+ConfidenceInterval = [1.128 μs; 1.151 μs] (CI 99.9%), Margin = 0.012 μs (1.02% of Mean)
+Skewness = 0.3, Kurtosis = 1.62, MValue = 2
+-------------------- Histogram --------------------
+[1.126 μs ; 1.158 μs) | @@@@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'Baubit: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 312.293 ns, StdErr = 0.699 ns (0.22%), N = 9, StdDev = 2.096 ns
+Min = 307.511 ns, Q1 = 311.780 ns, Median = 312.773 ns, Q3 = 313.728 ns, Max = 314.745 ns
+IQR = 1.948 ns, LowerFence = 308.859 ns, UpperFence = 316.650 ns
+ConfidenceInterval = [308.771 ns; 315.815 ns] (CI 99.9%), Margin = 3.522 ns (1.13% of Mean)
+Skewness = -1.07, Kurtosis = 3.28, MValue = 2
+-------------------- Histogram --------------------
+[306.189 ns ; 315.753 ns) | @@@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 12.945 μs, StdErr = 0.034 μs (0.26%), N = 9, StdDev = 0.101 μs
+Min = 12.772 μs, Q1 = 12.870 μs, Median = 12.945 μs, Q3 = 12.981 μs, Max = 13.100 μs
+IQR = 0.111 μs, LowerFence = 12.703 μs, UpperFence = 13.147 μs
+ConfidenceInterval = [12.775 μs; 13.115 μs] (CI 99.9%), Margin = 0.170 μs (1.31% of Mean)
+Skewness = -0.09, Kurtosis = 1.83, MValue = 2
+-------------------- Histogram --------------------
+[12.708 μs ; 13.164 μs) | @@@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=100]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 7.041 μs, StdErr = 0.046 μs (0.66%), N = 9, StdDev = 0.138 μs
+Min = 6.885 μs, Q1 = 6.961 μs, Median = 6.984 μs, Q3 = 7.116 μs, Max = 7.324 μs
+IQR = 0.155 μs, LowerFence = 6.728 μs, UpperFence = 7.349 μs
+ConfidenceInterval = [6.809 μs; 7.274 μs] (CI 99.9%), Margin = 0.233 μs (3.30% of Mean)
+Skewness = 0.83, Kurtosis = 2.28, MValue = 2
+-------------------- Histogram --------------------
+[6.858 μs ; 7.033 μs) | @@@@@@
+[7.033 μs ; 7.234 μs) | @@
+[7.234 μs ; 7.412 μs) | @
+---------------------------------------------------
+
+MediatorBenchmarks.'MediatR: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 1.110 μs, StdErr = 0.003 μs (0.27%), N = 10, StdDev = 0.009 μs
+Min = 1.096 μs, Q1 = 1.103 μs, Median = 1.110 μs, Q3 = 1.115 μs, Max = 1.126 μs
+IQR = 0.013 μs, LowerFence = 1.084 μs, UpperFence = 1.134 μs
+ConfidenceInterval = [1.096 μs; 1.124 μs] (CI 99.9%), Margin = 0.014 μs (1.28% of Mean)
+Skewness = 0.06, Kurtosis = 1.69, MValue = 2
+-------------------- Histogram --------------------
+[1.091 μs ; 1.132 μs) | @@@@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'Baubit: Aggregation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 292.922 ns, StdErr = 1.459 ns (0.50%), N = 10, StdDev = 4.613 ns
+Min = 287.108 ns, Q1 = 289.361 ns, Median = 291.357 ns, Q3 = 296.563 ns, Max = 301.388 ns
+IQR = 7.202 ns, LowerFence = 278.557 ns, UpperFence = 307.367 ns
+ConfidenceInterval = [285.947 ns; 299.897 ns] (CI 99.9%), Margin = 6.975 ns (2.38% of Mean)
+Skewness = 0.43, Kurtosis = 1.69, MValue = 2
+-------------------- Histogram --------------------
+[286.402 ns ; 293.269 ns) | @@@@@@
+[293.269 ns ; 304.199 ns) | @@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'MediatR: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 1.122 μs, StdErr = 0.004 μs (0.32%), N = 10, StdDev = 0.011 μs
+Min = 1.111 μs, Q1 = 1.113 μs, Median = 1.119 μs, Q3 = 1.127 μs, Max = 1.148 μs
+IQR = 0.014 μs, LowerFence = 1.093 μs, UpperFence = 1.148 μs
+ConfidenceInterval = [1.105 μs; 1.140 μs] (CI 99.9%), Margin = 0.017 μs (1.55% of Mean)
+Skewness = 0.91, Kurtosis = 2.74, MValue = 2
+-------------------- Histogram --------------------
+[1.104 μs ; 1.155 μs) | @@@@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'Baubit: Async Mediation': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 321.868 ns, StdErr = 0.298 ns (0.09%), N = 8, StdDev = 0.842 ns
+Min = 320.176 ns, Q1 = 321.597 ns, Median = 321.903 ns, Q3 = 322.388 ns, Max = 322.963 ns
+IQR = 0.791 ns, LowerFence = 320.410 ns, UpperFence = 323.575 ns
+ConfidenceInterval = [320.258 ns; 323.478 ns] (CI 99.9%), Margin = 1.610 ns (0.50% of Mean)
+Skewness = -0.67, Kurtosis = 2.45, MValue = 2
+-------------------- Histogram --------------------
+[319.624 ns ; 323.516 ns) | @@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 125.012 μs, StdErr = 0.333 μs (0.27%), N = 10, StdDev = 1.054 μs
+Min = 124.016 μs, Q1 = 124.169 μs, Median = 124.677 μs, Q3 = 125.767 μs, Max = 127.038 μs
+IQR = 1.598 μs, LowerFence = 121.771 μs, UpperFence = 128.165 μs
+ConfidenceInterval = [123.419 μs; 126.606 μs] (CI 99.9%), Margin = 1.594 μs (1.27% of Mean)
+Skewness = 0.6, Kurtosis = 1.78, MValue = 2
+-------------------- Histogram --------------------
+[123.373 μs ; 127.680 μs) | @@@@@@@@@@
+---------------------------------------------------
+
+MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': Job-VAIYHK(InvocationCount=10000, IterationCount=10, WarmupCount=3) [OperationCount=1000]
+Runtime = .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3; GC = Concurrent Workstation
+Mean = 61.399 μs, StdErr = 0.136 μs (0.22%), N = 10, StdDev = 0.430 μs
+Min = 60.771 μs, Q1 = 61.042 μs, Median = 61.412 μs, Q3 = 61.782 μs, Max = 61.990 μs
+IQR = 0.739 μs, LowerFence = 59.934 μs, UpperFence = 62.890 μs
+ConfidenceInterval = [60.749 μs; 62.050 μs] (CI 99.9%), Margin = 0.650 μs (1.06% of Mean)
+Skewness = -0.1, Kurtosis = 1.36, MValue = 2
+-------------------- Histogram --------------------
+[60.509 μs ; 62.252 μs) | @@@@@@@@@@
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.6, Linux Ubuntu 24.04.3 LTS (Noble Numbat)
+AMD EPYC 7763 2.89GHz, 1 CPU, 4 logical and 2 physical cores
+.NET SDK 10.0.101
+  [Host]     : .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+  Job-VAIYHK : .NET 9.0.11 (9.0.11, 9.0.1125.51716), X64 RyuJIT x86-64-v3
+
+InvocationCount=10000  IterationCount=10  WarmupCount=3  
+
+| Method                                     | OperationCount | Mean         | Error       | StdDev      | Op/s        | Ratio  | RatioSD | Gen0    | Gen1   | Allocated | Alloc Ratio |
+|------------------------------------------- |--------------- |-------------:|------------:|------------:|------------:|-------:|--------:|--------:|-------:|----------:|------------:|
+| 'MediatR: Aggregation'                     | 100            |   1,238.1 ns |   325.94 ns |   215.59 ns |   807,668.9 |   1.09 |    0.18 |       - |      - |     289 B |        0.80 |
+| 'Baubit: Aggregation'                      | 100            |     305.3 ns |     7.40 ns |     4.41 ns | 3,275,541.1 |   0.27 |    0.00 |       - |      - |      64 B |        0.18 |
+| 'MediatR: Async Mediation'                 | 100            |   1,139.7 ns |    11.64 ns |     7.70 ns |   877,430.8 |   1.00 |    0.01 |       - |      - |     361 B |        1.00 |
+| 'Baubit: Async Mediation'                  | 100            |     312.3 ns |     3.52 ns |     2.10 ns | 3,202,123.0 |   0.27 |    0.00 |       - |      - |     168 B |        0.47 |
+| 'MediatR: Async Mediation (Parallel Load)' | 100            |  12,945.0 ns |   169.95 ns |   101.14 ns |    77,249.9 |  11.36 |    0.11 |  1.8000 |      - |   31393 B |       86.96 |
+| 'Baubit: Async Mediation (Parallel Load)'  | 100            |   7,041.1 ns |   232.59 ns |   138.41 ns |   142,023.0 |   6.18 |    0.12 |  0.7000 |      - |   12192 B |       33.77 |
+|                                            |                |              |             |             |             |        |         |         |        |           |             |
+| 'MediatR: Aggregation'                     | 1000           |   1,110.0 ns |    14.23 ns |     9.41 ns |   900,927.5 |   0.99 |    0.01 |       - |      - |     289 B |        0.80 |
+| 'Baubit: Aggregation'                      | 1000           |     292.9 ns |     6.97 ns |     4.61 ns | 3,413,877.4 |   0.26 |    0.00 |       - |      - |      64 B |        0.18 |
+| 'MediatR: Async Mediation'                 | 1000           |   1,122.3 ns |    17.36 ns |    11.48 ns |   891,049.6 |   1.00 |    0.01 |       - |      - |     361 B |        1.00 |
+| 'Baubit: Async Mediation'                  | 1000           |     321.9 ns |     1.61 ns |     0.84 ns | 3,106,861.5 |   0.29 |    0.00 |       - |      - |     168 B |        0.47 |
+| 'MediatR: Async Mediation (Parallel Load)' | 1000           | 125,012.5 ns | 1,593.86 ns | 1,054.24 ns |     7,999.2 | 111.40 |    1.40 | 18.6000 | 5.4000 |  312193 B |      864.80 |
+| 'Baubit: Async Mediation (Parallel Load)'  | 1000           |  61,399.2 ns |   650.48 ns |   430.25 ns |    16,286.9 |  54.71 |    0.64 |  7.1000 | 1.8000 |  120192 B |      332.94 |
+
+// * Warnings *
+MinIterationTime
+  MediatorBenchmarks.'MediatR: Aggregation': InvocationCount=10000, IterationCount=10, WarmupCount=3                    -> The minimum observed iteration time is 10.681ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'Baubit: Aggregation': InvocationCount=10000, IterationCount=10, WarmupCount=3                     -> The minimum observed iteration time is 3.016ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'MediatR: Async Mediation': InvocationCount=10000, IterationCount=10, WarmupCount=3                -> The minimum observed iteration time is 11.37ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'Baubit: Async Mediation': InvocationCount=10000, IterationCount=10, WarmupCount=3                 -> The minimum observed iteration time is 3.125ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': InvocationCount=10000, IterationCount=10, WarmupCount=3 -> The minimum observed iteration time is 68.869ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'MediatR: Aggregation': InvocationCount=10000, IterationCount=10, WarmupCount=3                    -> The minimum observed iteration time is 10.992ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'Baubit: Aggregation': InvocationCount=10000, IterationCount=10, WarmupCount=3                     -> The minimum observed iteration time is 2.901ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'MediatR: Async Mediation': InvocationCount=10000, IterationCount=10, WarmupCount=3                -> The minimum observed iteration time is 11.146ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  MediatorBenchmarks.'Baubit: Async Mediation': InvocationCount=10000, IterationCount=10, WarmupCount=3                 -> The minimum observed iteration time is 3.25ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+
+// * Hints *
+Outliers
+  MediatorBenchmarks.'Baubit: Aggregation': InvocationCount=10000, IterationCount=10, WarmupCount=3                      -> 1 outlier  was  removed (331.27 ns)
+  MediatorBenchmarks.'Baubit: Async Mediation': InvocationCount=10000, IterationCount=10, WarmupCount=3                  -> 1 outlier  was  removed, 2 outliers were detected (312.53 ns, 323.04 ns)
+  MediatorBenchmarks.'MediatR: Async Mediation (Parallel Load)': InvocationCount=10000, IterationCount=10, WarmupCount=3 -> 1 outlier  was  removed (14.20 μs)
+  MediatorBenchmarks.'Baubit: Async Mediation (Parallel Load)': InvocationCount=10000, IterationCount=10, WarmupCount=3  -> 1 outlier  was  removed (8.36 μs)
+  MediatorBenchmarks.'Baubit: Async Mediation': InvocationCount=10000, IterationCount=10, WarmupCount=3                  -> 2 outliers were removed (329.60 ns, 406.35 ns)
+
+// * Legends *
+  OperationCount : Value of the 'OperationCount' parameter
+  Mean           : Arithmetic mean of all measurements
+  Error          : Half of 99.9% confidence interval
+  StdDev         : Standard deviation of all measurements
+  Op/s           : Operation per second
+  Ratio          : Mean of the ratio distribution ([Current]/[Baseline])
+  RatioSD        : Standard deviation of the ratio distribution ([Current]/[Baseline])
+  Gen0           : GC Generation 0 collects per 1000 operations
+  Gen1           : GC Generation 1 collects per 1000 operations
+  Allocated      : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  Alloc Ratio    : Allocated memory ratio distribution ([Current]/[Baseline])
+  1 ns           : 1 Nanosecond (0.000000001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:00:34 (34.25 sec), executed benchmarks: 12
+
+Global total time: 00:00:44 (44.09 sec), executed benchmarks: 12
+// * Artifacts cleanup *
+Artifacts cleanup is finished
