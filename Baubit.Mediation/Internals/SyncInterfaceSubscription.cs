@@ -26,6 +26,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="syncHandler">The synchronous handler to wrap.</param>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         public SyncInterfaceSubscription(IRequestHandler<TRequest, TResponse> syncHandler,
                                          bool enableBuffering,
                                          CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
@@ -41,7 +42,7 @@ namespace Baubit.Mediation.Internals
         /// <returns>A completed task containing the response from the handler.</returns>
         public override Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(SyncHandler.Handle(request));
+            return Task.FromResult(SyncHandler.Handle(request, cancellationToken));
         }
 
         /// <summary>

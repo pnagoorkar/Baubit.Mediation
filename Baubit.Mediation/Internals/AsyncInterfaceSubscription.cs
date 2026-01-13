@@ -26,6 +26,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="asyncHandler">The asynchronous handler to wrap.</param>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         public AsyncInterfaceSubscription(IAsyncRequestHandler<TRequest, TResponse> asyncHandler,
                                           bool enableBuffering,
                                           CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
@@ -41,7 +42,7 @@ namespace Baubit.Mediation.Internals
         /// <returns>A task that completes with the response from the handler.</returns>
         public override async Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
         {
-            return await AsyncHandler.HandleAsync(request).ConfigureAwait(false);
+            return await AsyncHandler.HandleAsync(request, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

@@ -1,7 +1,4 @@
-﻿using Baubit.Caching;
-using Baubit.Identity;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation.Internals
@@ -27,12 +24,17 @@ namespace Baubit.Mediation.Internals
         /// When true, messages are queued in the cache before delivery. When false, messages are delivered directly.
         /// </summary>
         public bool EnableBuffering { get; private set; }
+        
+        /// <summary>
+        /// Gets the cancellation token to monitor for cancellation requests.
+        /// </summary>
         public CancellationToken CancellationToken { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Subscription"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered message delivery; false for direct delivery.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         protected Subscription(bool enableBuffering, 
                                CancellationToken cancellationToken)
         {
@@ -87,13 +89,15 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription{T}"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         protected Subscription(bool enableBuffering,
                                CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
 
         }
 
-        public abstract bool Handle(T notification);
+        /// <inheritdoc/>
+        public abstract bool Handle(T notification, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -113,6 +117,7 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription{TRequest, TResponse}"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         protected Subscription(bool enableBuffering,
                                CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {

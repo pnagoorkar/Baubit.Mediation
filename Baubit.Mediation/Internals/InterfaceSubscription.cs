@@ -24,14 +24,16 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="subscriber">The subscriber to wrap.</param>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         public InterfaceSubscription(ISubscriber<T> subscriber, bool enableBuffering, CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
             Subscriber = subscriber;
         }
 
-        public override bool Handle(T notification)
+        /// <inheritdoc/>
+        public override bool Handle(T notification, CancellationToken cancellationToken = default)
         {
-            return Subscriber.OnNextOrError(notification);
+            return Subscriber.OnNextOrError(notification, cancellationToken);
         }
 
         /// <summary>

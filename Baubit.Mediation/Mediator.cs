@@ -59,13 +59,14 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public bool Publish<T>(T notification)
+        public bool Publish<T>(T notification, CancellationToken cancellationToken = default)
         {
             var retVal = true;
             var postedToCache = false;
             if (!activeSubscriptions.TryGetValue(typeof(ISubscription<T>), out var subscriptions)) return true;
             foreach (var subscription in subscriptions)
             {
+                if (cancellationToken.IsCancellationRequested) return true;
                 if (subscription.EnableBuffering)
                 {
                     if (!postedToCache)
@@ -77,7 +78,7 @@ namespace Baubit.Mediation
                 }
                 else
                 {
-                    retVal &= ((ISubscription<T>)subscription).Handle(notification);
+                    retVal &= ((ISubscription<T>)subscription).Handle(notification, subscription.CancellationToken);
                 }
             }
             return retVal;
@@ -86,7 +87,7 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Publish(notification));
+            return Task.FromResult(Publish(notification, cancellationToken));
         }
 
         /// <inheritdoc/>
@@ -114,7 +115,7 @@ namespace Baubit.Mediation
                 // Enumerator completed without finding a response (cancellation or unexpected cache issue)
                 throw new TaskCanceledException("Response not received before enumeration ended");
             }
-            else return await requestSubscription.HandleAsync(request, cancellationToken);
+            else return await requestSubscription.HandleAsync(request, subscription.CancellationToken);
         }
 
         public Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
@@ -142,7 +143,7 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                         {
-                            var response = requestHandler.Handle(trackedRequest.Request);
+                            var response = requestHandler.Handle(trackedRequest.Request, subscription.CancellationToken);
                             cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
                         }
                     }
@@ -177,11 +178,11 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is T notification)
                         {
-                            retVal &= subscriber.OnNextOrError(notification);
+                            retVal &= subscriber.OnNextOrError(notification, subscription.CancellationToken);
                         }
                     }
                 }
-                else await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
                 return retVal;
             }
             finally { cachedSubscription.Remove(subscription); }
@@ -214,12 +215,12 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                         {
-                            var response = await requestHandler.HandleAsync(trackedRequest.Request).ConfigureAwait(false);
+                            var response = await requestHandler.HandleAsync(trackedRequest.Request, subscription.CancellationToken).ConfigureAwait(false);
                             cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
                         }
                     }
                 }
-                else await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
                 return true;
             }
             finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
@@ -249,11 +250,11 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is TNotification notification)
                         {
-                            retVal &= await notificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false);
+                            retVal &= await notificationHandler.Invoke(notification, subscription.CancellationToken).ConfigureAwait(false);
                         }
                     }
                 }
-                else await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
                 return retVal;
             }
             finally { cachedSubscription.Remove(subscription); }
@@ -286,12 +287,12 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                         {
-                            var response = await asyncHandler.Invoke(trackedRequest.Request, cancellationToken).ConfigureAwait(false);
+                            var response = await asyncHandler.Invoke(trackedRequest.Request, subscription.CancellationToken).ConfigureAwait(false);
                             cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
                         }
                     }
                 }
-                else await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
                 return true;
             }
             finally { cachedSubscription.Remove(subscriptions[0]); }

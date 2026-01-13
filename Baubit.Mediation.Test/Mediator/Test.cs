@@ -1,12 +1,5 @@
 ﻿using Baubit.Caching;
-using Baubit.Caching.InMemory;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
-using Xunit;
 
 namespace Baubit.Mediation.Test.Mediator
 {
@@ -39,7 +32,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         public class TestSyncHandler : IRequestHandler<TestRequest, TestResponse>
         {
-            public TestResponse Handle(TestRequest request)
+            public TestResponse Handle(TestRequest request, CancellationToken cancellationToken = default)
             {
                 return new TestResponse { Result = $"Handled: {request.Value}" };
             }
@@ -47,7 +40,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         public class TestSyncHandler2 : IRequestHandler<TestRequest2, TestResponse2>
         {
-            public TestResponse2 Handle(TestRequest2 request)
+            public TestResponse2 Handle(TestRequest2 request, CancellationToken cancellationToken = default)
             {
                 return new TestResponse2 { ComputedValue = request.Id * 2 };
             }
@@ -55,7 +48,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         public class TestAsyncHandler : IAsyncRequestHandler<TestRequest, TestResponse>
         {
-            public async Task<TestResponse> HandleAsync(TestRequest request)
+            public async Task<TestResponse> HandleAsync(TestRequest request, CancellationToken cancellationToken = default)
             {
                 await Task.Delay(1);
                 return new TestResponse { Result = $"AsyncHandled: {request.Value}" };
@@ -68,7 +61,7 @@ namespace Baubit.Mediation.Test.Mediator
             public bool IsCompleted { get; private set; }
             public Exception? LastError { get; private set; }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 LastValue = next;
                 return true;
@@ -98,7 +91,7 @@ namespace Baubit.Mediation.Test.Mediator
                 _messages = messages;
             }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 _messages.Add(next);
                 return true;
@@ -120,7 +113,7 @@ namespace Baubit.Mediation.Test.Mediator
                 _countdown = countdown;
             }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 _messages.Add(next);
                 _countdown.Signal();
@@ -136,7 +129,7 @@ namespace Baubit.Mediation.Test.Mediator
         {
             public Exception? LastError { get; private set; }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 throw new InvalidOperationException("Test error");
             }
@@ -1842,6 +1835,322 @@ namespace Baubit.Mediation.Test.Mediator
             Assert.Equal(0, cache.Count); // Should not use cache
 
             cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Publish_MultipleBufferedSubscribers_OnlyAddsToOnceToCacheOnce()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var messages1 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var messages2 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var subscriber1 = new CountingSubscriber(messages1);
+            var subscriber2 = new CountingSubscriber(messages2);
+            using var cts = new CancellationTokenSource();
+
+            // Act - Start multiple buffered subscriptions
+            var task1 = mediator.SubscribeAsync(subscriber1, enableBuffering: true, cancellationToken: cts.Token);
+            var task2 = mediator.SubscribeAsync(subscriber2, enableBuffering: true, cancellationToken: cts.Token);
+            await Task.Delay(50); // Allow subscriptions to start
+
+            // Publish - should add to cache only once
+            var result = mediator.Publish("multi-buffered-test");
+
+            await Task.Delay(100); // Allow delivery
+            cts.Cancel();
+
+            // Assert - Both subscribers should receive it, but cache should only have one entry
+            Assert.True(result);
+            Assert.Contains("multi-buffered-test", messages1);
+            Assert.Contains("multi-buffered-test", messages2);
+        }
+
+        #endregion
+
+        #region Subscription Tests - Double Disposal
+
+        [Fact]
+        public void Subscription_DoubleDispose_DoesNotThrow()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                await Task.CompletedTask;
+                return true;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+
+            // Act & Assert
+            subscription.Dispose();
+            subscription.Dispose(); // Second dispose should be safe
+        }
+
+        [Fact]
+        public void AsyncFuncSubscription_DoubleDispose_DoesNotThrow()
+        {
+            // Arrange
+            Func<TestRequest, CancellationToken, Task<TestResponse>> handler = async (req, ct) =>
+            {
+                await Task.CompletedTask;
+                return new TestResponse();
+            };
+            var subscription = new Baubit.Mediation.Internals.AsyncFuncSubscription<TestRequest, TestResponse>(handler, false, CancellationToken.None);
+
+            // Act & Assert
+            subscription.Dispose();
+            subscription.Dispose(); // Second dispose should be safe
+        }
+
+        #endregion
+
+        #region Edge Cases - Disposed Subscriptions
+
+        [Fact]
+        public void FuncSubscription_HandleAfterDispose_HandlesGracefully()
+        {
+            // Arrange
+            var called = false;
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                called = true;
+                await Task.CompletedTask;
+                return true;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+            subscription.Dispose();
+
+            // Act
+            var result = subscription.Handle("test");
+
+            // Assert - Should return true without calling handler (handler is null after dispose)
+            Assert.True(result);
+            Assert.False(called);
+        }
+
+        [Fact]
+        public void InterfaceSubscription_HandleAfterDispose_ThrowsNullReference()
+        {
+            // Arrange
+            var subscriber = new TestSubscriber();
+            var subscription = new Baubit.Mediation.Internals.InterfaceSubscription<string>(subscriber, false, CancellationToken.None);
+            subscription.Dispose();
+
+            // Act & Assert - Should throw because subscriber is null after dispose
+            Assert.Throws<NullReferenceException>(() => subscription.Handle("test"));
+        }
+
+        #endregion
+
+        #region CancellationToken Tests
+
+        [Fact]
+        public void Publish_WithCancelledToken_ReturnsEarly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber1 = new TestSubscriber();
+            var subscriber2 = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+            cts.Cancel(); // Cancel before publishing
+
+            var task1 = mediator.SubscribeAsync(subscriber1, enableBuffering: false, cancellationToken: CancellationToken.None);
+            var task2 = mediator.SubscribeAsync(subscriber2, enableBuffering: false, cancellationToken: CancellationToken.None);
+
+            // Act
+            var result = mediator.Publish("test", cts.Token);
+
+            // Assert - Should return true and stop early without delivering to all subscribers
+            Assert.True(result);
+        }
+
+        [Fact]
+        public async Task Publish_PassesCancellationTokenToSubscriber()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+            
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                receivedToken = ct;
+                await Task.CompletedTask;
+                return true;
+            };
+
+            using var cts = new CancellationTokenSource();
+            // Pass the cancellation token to SubscribeAsync - this is what the handler will receive
+            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var result = mediator.Publish("test", CancellationToken.None);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+            
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task PublishAsync_PassesCancellationTokenThrough()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+            
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                receivedToken = ct;
+                await Task.CompletedTask;
+                return true;
+            };
+
+            using var cts = new CancellationTokenSource();
+            // Pass the cancellation token to SubscribeAsync - this is what the handler will receive
+            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var result = await mediator.PublishAsync("test", CancellationToken.None);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+            
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Subscriber_OnNext_ReceivesCancellationToken()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+
+            var subscriber = new TestSubscriberWithTokenCapture((token) => receivedToken = token);
+            using var cts = new CancellationTokenSource();
+            
+            // Pass the cancellation token to SubscribeAsync - this is what the subscriber will receive
+            var subscribeTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var result = mediator.Publish("test", CancellationToken.None);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+            
+            cts.Cancel();
+        }
+
+        private class TestSubscriberWithTokenCapture : ISubscriber<string>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestSubscriberWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        [Fact]
+        public async Task SyncHandler_ReceivesSubscriptionCancellationToken()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+
+            var handler = new TestSyncHandlerWithTokenCapture((token) => receivedToken = token);
+            using var cts = new CancellationTokenSource();
+
+            // Pass cancellation token to subscription
+            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(new TestRequest { Value = "test" }, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal(cts.Token, receivedToken);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task AsyncHandler_ReceivesSubscriptionCancellationToken()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+
+            var handler = new TestAsyncHandlerWithTokenCapture((token) => receivedToken = token);
+            using var cts = new CancellationTokenSource();
+
+            // Pass cancellation token to subscription
+            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(new TestRequest { Value = "test" }, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal(cts.Token, receivedToken);
+
+            cts.Cancel();
+        }
+
+        private class TestSyncHandlerWithTokenCapture : IRequestHandler<TestRequest, TestResponse>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestSyncHandlerWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public TestResponse Handle(TestRequest request, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                return new TestResponse { Result = $"Handled: {request.Value}" };
+            }
+        }
+
+        private class TestAsyncHandlerWithTokenCapture : IAsyncRequestHandler<TestRequest, TestResponse>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestAsyncHandlerWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public async Task<TestResponse> HandleAsync(TestRequest request, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                await Task.Delay(1);
+                return new TestResponse { Result = $"AsyncHandled: {request.Value}" };
+            }
         }
 
         #endregion
