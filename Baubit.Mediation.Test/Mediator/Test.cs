@@ -1844,6 +1844,109 @@ namespace Baubit.Mediation.Test.Mediator
             cts.Cancel();
         }
 
+        [Fact]
+        public async Task Publish_MultipleBufferedSubscribers_OnlyAddsToOnceToCacheOnce()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var messages1 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var messages2 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var subscriber1 = new CountingSubscriber(messages1);
+            var subscriber2 = new CountingSubscriber(messages2);
+            using var cts = new CancellationTokenSource();
+
+            // Act - Start multiple buffered subscriptions
+            var task1 = mediator.SubscribeAsync(subscriber1, enableBuffering: true, cancellationToken: cts.Token);
+            var task2 = mediator.SubscribeAsync(subscriber2, enableBuffering: true, cancellationToken: cts.Token);
+            await Task.Delay(50); // Allow subscriptions to start
+
+            // Publish - should add to cache only once
+            var result = mediator.Publish("multi-buffered-test");
+
+            await Task.Delay(100); // Allow delivery
+            cts.Cancel();
+
+            // Assert - Both subscribers should receive it, but cache should only have one entry
+            Assert.True(result);
+            Assert.Contains("multi-buffered-test", messages1);
+            Assert.Contains("multi-buffered-test", messages2);
+        }
+
+        #endregion
+
+        #region Subscription Tests - Double Disposal
+
+        [Fact]
+        public void Subscription_DoubleDispose_DoesNotThrow()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                await Task.CompletedTask;
+                return true;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+
+            // Act & Assert
+            subscription.Dispose();
+            subscription.Dispose(); // Second dispose should be safe
+        }
+
+        [Fact]
+        public void AsyncFuncSubscription_DoubleDispose_DoesNotThrow()
+        {
+            // Arrange
+            Func<TestRequest, CancellationToken, Task<TestResponse>> handler = async (req, ct) =>
+            {
+                await Task.CompletedTask;
+                return new TestResponse();
+            };
+            var subscription = new Baubit.Mediation.Internals.AsyncFuncSubscription<TestRequest, TestResponse>(handler, false, CancellationToken.None);
+
+            // Act & Assert
+            subscription.Dispose();
+            subscription.Dispose(); // Second dispose should be safe
+        }
+
+        #endregion
+
+        #region Edge Cases - Disposed Subscriptions
+
+        [Fact]
+        public void FuncSubscription_HandleAfterDispose_HandlesGracefully()
+        {
+            // Arrange
+            var called = false;
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                called = true;
+                await Task.CompletedTask;
+                return true;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+            subscription.Dispose();
+
+            // Act
+            var result = subscription.Handle("test");
+
+            // Assert - Should return true without calling handler (handler is null after dispose)
+            Assert.True(result);
+            Assert.False(called);
+        }
+
+        [Fact]
+        public void InterfaceSubscription_HandleAfterDispose_ThrowsNullReference()
+        {
+            // Arrange
+            var subscriber = new TestSubscriber();
+            var subscription = new Baubit.Mediation.Internals.InterfaceSubscription<string>(subscriber, false, CancellationToken.None);
+            subscription.Dispose();
+
+            // Act & Assert - Should throw because subscriber is null after dispose
+            Assert.Throws<NullReferenceException>(() => subscription.Handle("test"));
+        }
+
         #endregion
     }
 }

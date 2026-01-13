@@ -122,5 +122,20 @@ namespace Baubit.Mediation.Test.SyncInterfaceSubscription
             // Assert
             Assert.Equal(cts.Token, subscription.CancellationToken);
         }
+
+        [Fact]
+        public void Dispose_MultipleTimes_DoesNotThrow()
+        {
+            // Arrange
+            var handler = new TestSyncHandler();
+            var subscription = new Baubit.Mediation.Internals.SyncInterfaceSubscription<TestRequest, TestResponse>(handler, true, CancellationToken.None);
+
+            // Act & Assert - Multiple disposes should not throw
+            subscription.Dispose();
+            subscription.Dispose();
+            subscription.Dispose();
+
+            Assert.Null(subscription.SyncHandler);
+        }
     }
 }

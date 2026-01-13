@@ -119,5 +119,35 @@ namespace Baubit.Mediation.Test.FuncSubscription
             // Assert
             Assert.Equal(cts.Token, subscription.CancellationToken);
         }
+
+        [Fact]
+        public void Dispose_MultipleTimes_DoesNotThrow()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true, CancellationToken.None);
+
+            // Act & Assert - Multiple disposes should not throw
+            subscription.Dispose();
+            subscription.Dispose();
+            subscription.Dispose();
+
+            Assert.Null(subscription.NotificationHandler);
+        }
+
+        [Fact]
+        public void Handle_AfterDispose_WithNullHandler_ReturnsTrue()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+            subscription.Dispose();
+
+            // Act
+            var result = subscription.Handle("test");
+
+            // Assert
+            Assert.True(result);
+        }
     }
 }
