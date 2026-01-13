@@ -32,7 +32,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         public class TestSyncHandler : IRequestHandler<TestRequest, TestResponse>
         {
-            public TestResponse Handle(TestRequest request)
+            public TestResponse Handle(TestRequest request, CancellationToken cancellationToken = default)
             {
                 return new TestResponse { Result = $"Handled: {request.Value}" };
             }
@@ -40,7 +40,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         public class TestSyncHandler2 : IRequestHandler<TestRequest2, TestResponse2>
         {
-            public TestResponse2 Handle(TestRequest2 request)
+            public TestResponse2 Handle(TestRequest2 request, CancellationToken cancellationToken = default)
             {
                 return new TestResponse2 { ComputedValue = request.Id * 2 };
             }
@@ -48,7 +48,7 @@ namespace Baubit.Mediation.Test.Mediator
 
         public class TestAsyncHandler : IAsyncRequestHandler<TestRequest, TestResponse>
         {
-            public async Task<TestResponse> HandleAsync(TestRequest request)
+            public async Task<TestResponse> HandleAsync(TestRequest request, CancellationToken cancellationToken = default)
             {
                 await Task.Delay(1);
                 return new TestResponse { Result = $"AsyncHandled: {request.Value}" };

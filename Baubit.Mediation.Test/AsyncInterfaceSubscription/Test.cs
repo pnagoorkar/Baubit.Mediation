@@ -24,7 +24,7 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
 
         public class TestAsyncHandler : IAsyncRequestHandler<TestRequest, TestResponse>
         {
-            public async Task<TestResponse> HandleAsync(TestRequest request)
+            public async Task<TestResponse> HandleAsync(TestRequest request, CancellationToken cancellationToken = default)
             {
                 await Task.Delay(1);
                 return new TestResponse { Result = $"AsyncHandled: {request.Value}" };

@@ -29,7 +29,7 @@ public class BaubitNotification
 
 public class BaubitAsyncHandler : IAsyncRequestHandler<BaubitRequest, BaubitResponse>
 {
-    public Task<BaubitResponse> HandleAsync(BaubitRequest request)
+    public Task<BaubitResponse> HandleAsync(BaubitRequest request, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new BaubitResponse { Result = request.Value * 2 });
     }

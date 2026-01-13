@@ -24,7 +24,7 @@ namespace Baubit.Mediation.Test.SyncInterfaceSubscription
 
         public class TestSyncHandler : IRequestHandler<TestRequest, TestResponse>
         {
-            public TestResponse Handle(TestRequest request)
+            public TestResponse Handle(TestRequest request, CancellationToken cancellationToken = default)
             {
                 return new TestResponse { Result = $"Handled: {request.Value}" };
             }

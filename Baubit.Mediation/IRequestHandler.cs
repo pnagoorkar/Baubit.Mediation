@@ -1,4 +1,6 @@
-﻿namespace Baubit.Mediation
+﻿using System.Threading;
+
+namespace Baubit.Mediation
 {
     /// <summary>
     /// Non-generic base interface for all request handlers.
@@ -21,6 +23,6 @@
         /// </summary>
         /// <param name="request">The request payload.</param>
         /// <returns>The response.</returns>
-        TResponse Handle(TRequest request);
+        TResponse Handle(TRequest request, CancellationToken cancellationToken = default);
     }
 }

@@ -42,7 +42,7 @@ namespace Baubit.Mediation.Internals
         /// <returns>A task that completes with the response from the handler.</returns>
         public override async Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default)
         {
-            return await AsyncHandler.HandleAsync(request).ConfigureAwait(false);
+            return await AsyncHandler.HandleAsync(request, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

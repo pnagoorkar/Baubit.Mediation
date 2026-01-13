@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 namespace Baubit.Mediation
 {
@@ -19,6 +20,6 @@ namespace Baubit.Mediation
         /// </summary>
         /// <param name="request">The request payload.</param>
         /// <returns>A task that completes with the response.</returns>
-        Task<TResponse> HandleAsync(TRequest request);
+        Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }
