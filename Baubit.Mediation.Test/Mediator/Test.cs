@@ -1981,11 +1981,12 @@ namespace Baubit.Mediation.Test.Mediator
             };
 
             using var cts = new CancellationTokenSource();
-            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: CancellationToken.None);
+            // Pass the cancellation token to SubscribeAsync - this is what the handler will receive
+            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: cts.Token);
             await Task.Delay(50); // Let subscription start
 
             // Act
-            var result = mediator.Publish("test", cts.Token);
+            var result = mediator.Publish("test", CancellationToken.None);
 
             // Assert
             Assert.True(result);
@@ -2010,11 +2011,12 @@ namespace Baubit.Mediation.Test.Mediator
             };
 
             using var cts = new CancellationTokenSource();
-            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: CancellationToken.None);
+            // Pass the cancellation token to SubscribeAsync - this is what the handler will receive
+            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: cts.Token);
             await Task.Delay(50); // Let subscription start
 
             // Act
-            var result = await mediator.PublishAsync("test", cts.Token);
+            var result = await mediator.PublishAsync("test", CancellationToken.None);
 
             // Assert
             Assert.True(result);
@@ -2034,11 +2036,12 @@ namespace Baubit.Mediation.Test.Mediator
             var subscriber = new TestSubscriberWithTokenCapture((token) => receivedToken = token);
             using var cts = new CancellationTokenSource();
             
-            var subscribeTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, cancellationToken: CancellationToken.None);
+            // Pass the cancellation token to SubscribeAsync - this is what the subscriber will receive
+            var subscribeTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, cancellationToken: cts.Token);
             await Task.Delay(50); // Let subscription start
 
             // Act
-            var result = mediator.Publish("test", cts.Token);
+            var result = mediator.Publish("test", CancellationToken.None);
 
             // Assert
             Assert.True(result);
@@ -2065,6 +2068,89 @@ namespace Baubit.Mediation.Test.Mediator
             public bool OnError(Exception error) => true;
             public bool OnCompleted() => true;
             public void Dispose() { }
+        }
+
+        [Fact]
+        public async Task SyncHandler_ReceivesSubscriptionCancellationToken()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+
+            var handler = new TestSyncHandlerWithTokenCapture((token) => receivedToken = token);
+            using var cts = new CancellationTokenSource();
+
+            // Pass cancellation token to subscription
+            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(new TestRequest { Value = "test" }, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal(cts.Token, receivedToken);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task AsyncHandler_ReceivesSubscriptionCancellationToken()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+
+            var handler = new TestAsyncHandlerWithTokenCapture((token) => receivedToken = token);
+            using var cts = new CancellationTokenSource();
+
+            // Pass cancellation token to subscription
+            var subscribeTask = mediator.SubscribeAsync<TestRequest, TestResponse>(handler, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var response = await mediator.PublishAsync<TestRequest, TestResponse>(new TestRequest { Value = "test" }, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal(cts.Token, receivedToken);
+
+            cts.Cancel();
+        }
+
+        private class TestSyncHandlerWithTokenCapture : IRequestHandler<TestRequest, TestResponse>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestSyncHandlerWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public TestResponse Handle(TestRequest request, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                return new TestResponse { Result = $"Handled: {request.Value}" };
+            }
+        }
+
+        private class TestAsyncHandlerWithTokenCapture : IAsyncRequestHandler<TestRequest, TestResponse>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestAsyncHandlerWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public async Task<TestResponse> HandleAsync(TestRequest request, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                await Task.Delay(1);
+                return new TestResponse { Result = $"AsyncHandled: {request.Value}" };
+            }
         }
 
         #endregion

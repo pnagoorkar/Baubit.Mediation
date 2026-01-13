@@ -22,6 +22,7 @@ namespace Baubit.Mediation
         /// Handles the request synchronously and returns a response.
         /// </summary>
         /// <param name="request">The request payload.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during request processing.</param>
         /// <returns>The response.</returns>
         TResponse Handle(TRequest request, CancellationToken cancellationToken = default);
     }

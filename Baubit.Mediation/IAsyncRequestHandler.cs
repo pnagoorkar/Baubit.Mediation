@@ -19,6 +19,7 @@ namespace Baubit.Mediation
         /// Handles the request asynchronously and produces a response.
         /// </summary>
         /// <param name="request">The request payload.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during request processing.</param>
         /// <returns>A task that completes with the response.</returns>
         Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }

@@ -61,12 +61,33 @@ namespace Baubit.Mediation
         /// <returns>A task that completes when the subscription ends.</returns>
         Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering, string name, CancellationToken cancellationToken = default);
 
-
+        /// <summary>
+        /// Registers a synchronous request handler for a specific request/response pair.
+        /// The handler will process requests from the cache until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific request type at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The request type to handle.</typeparam>
+        /// <typeparam name="TResponse">The response type to return.</typeparam>
+        /// <param name="requestHandler">The handler to register.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.<br/>true by default.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes when the subscription ends with <c>true</c>, or <c>false</c> if a handler for this type is already registered.</returns>
         Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
                                                        bool enableBuffering = true,
                                                        CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
 
-
+        /// <summary>
+        /// Registers a synchronous request handler for a specific request/response pair with a named cache enumerator.
+        /// The handler will process requests from the cache until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific request type at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The request type to handle.</typeparam>
+        /// <typeparam name="TResponse">The response type to return.</typeparam>
+        /// <param name="requestHandler">The handler to register.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.</param>
+        /// <param name="name">Name for the cache enumerator.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes when the subscription ends with <c>true</c>, or <c>false</c> if a handler for this type is already registered.</returns>
         Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
                                                        bool enableBuffering = true,
                                                        string name = null,
