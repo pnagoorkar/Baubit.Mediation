@@ -267,8 +267,7 @@ public class GetUserHandler : IAsyncRequestHandler<GetUserRequest, GetUserRespon
     {
         // The cancellation token comes from the subscription, not the Publish call
         // This allows the handler to gracefully shut down when subscription is cancelled
-        if (cancellationToken.IsCancellationRequested)
-            return new GetUserResponse { Name = "Cancelled" };
+        cancellationToken.ThrowIfCancellationRequested();
         
         var user = await database.GetUserAsync(request.UserId, cancellationToken);
         return new GetUserResponse { Name = user.Name };
