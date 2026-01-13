@@ -1,6 +1,4 @@
-﻿using Baubit.Caching;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,42 +27,17 @@ namespace Baubit.Mediation.Internals
         /// <param name="notificationHandler">The function to invoke for each notification.</param>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
         public FuncSubscription(Func<T, CancellationToken, Task<bool>> notificationHandler, 
-                                  bool enableBuffering) : base(enableBuffering)
+                                bool enableBuffering,
+                                CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
             NotificationHandler = notificationHandler;
         }
 
-        /// <summary>
-        /// Processes buffered notifications from the cache, invoking the handler function for each notification.
-        /// Null handlers are safely ignored.
-        /// </summary>
-        /// <param name="cache">The ordered cache containing notifications.</param>
-        /// <param name="enumerator">The asynchronous enumerator for reading messages from the cache.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of message processing.</param>
-        /// <returns>A task that completes when message processing ends, returning true on successful completion.</returns>
-        protected override async Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
-        {
-            while (await enumerator.MoveNextAsync().ConfigureAwait(false))
-            {
-                if (enumerator.Current.Value is T notification && NotificationHandler != null)
-                {
-                    await NotificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false);
-                }
-            }
-            return true;
-        }
 
-        /// <summary>
-        /// Dispatches a notification directly to the handler function without buffering.
-        /// Returns true if the handler is null (no-op case).
-        /// </summary>
-        /// <param name="notification">The notification to dispatch.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of the operation.</param>
-        /// <returns>A task that completes when the notification is handled, returning the result from the handler or true if handler is null.</returns>
-        protected override async Task<bool> DispatchAsync(T notification, CancellationToken cancellationToken = default)
+        public override bool Handle(T notification)
         {
             if (NotificationHandler == null) return true;
-            return await NotificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false);
+            return NotificationHandler.Invoke(notification, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         /// <summary>
