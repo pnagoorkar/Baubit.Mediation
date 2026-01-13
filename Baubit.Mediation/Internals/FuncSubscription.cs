@@ -26,6 +26,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="notificationHandler">The function to invoke for each notification.</param>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         public FuncSubscription(Func<T, CancellationToken, Task<bool>> notificationHandler, 
                                 bool enableBuffering,
                                 CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
@@ -33,7 +34,7 @@ namespace Baubit.Mediation.Internals
             NotificationHandler = notificationHandler;
         }
 
-
+        /// <inheritdoc/>
         public override bool Handle(T notification)
         {
             if (NotificationHandler == null) return true;

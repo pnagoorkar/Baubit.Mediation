@@ -18,6 +18,10 @@ namespace Baubit.Mediation.Internals
         /// Gets a value indicating whether this subscription uses buffered message delivery.
         /// </summary>
         bool EnableBuffering { get; }
+        
+        /// <summary>
+        /// Gets the cancellation token to monitor for cancellation requests.
+        /// </summary>
         CancellationToken CancellationToken { get; }
     }
 
@@ -32,6 +36,11 @@ namespace Baubit.Mediation.Internals
     /// <typeparam name="T">The type of notifications handled by this subscription.</typeparam>
     public interface ISubscription<T> : ISubscription
     {
+        /// <summary>
+        /// Handles a notification by delivering it directly to the subscriber without buffering.
+        /// </summary>
+        /// <param name="notification">The notification to handle.</param>
+        /// <returns><c>true</c> if the notification was processed successfully; otherwise <c>false</c>.</returns>
         bool Handle(T notification);
     }
 

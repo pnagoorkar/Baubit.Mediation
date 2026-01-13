@@ -29,6 +29,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="funcHandler">The function to invoke for each request, returning a response.</param>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         public AsyncFuncSubscription(Func<TRequest, CancellationToken, Task<TResponse>> funcHandler,
                                      bool enableBuffering,
                                      CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)

@@ -33,6 +33,7 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered message delivery; false for direct delivery.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         protected Subscription(bool enableBuffering, 
                                CancellationToken cancellationToken)
         {
@@ -87,6 +88,7 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription{T}"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         protected Subscription(bool enableBuffering,
                                CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
@@ -113,6 +115,7 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription{TRequest, TResponse}"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         protected Subscription(bool enableBuffering,
                                CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
