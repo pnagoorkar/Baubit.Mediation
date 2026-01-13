@@ -1941,5 +1941,132 @@ namespace Baubit.Mediation.Test.Mediator
         }
 
         #endregion
+
+        #region CancellationToken Tests
+
+        [Fact]
+        public void Publish_WithCancelledToken_ReturnsEarly()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var subscriber1 = new TestSubscriber();
+            var subscriber2 = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+            cts.Cancel(); // Cancel before publishing
+
+            var task1 = mediator.SubscribeAsync(subscriber1, enableBuffering: false, cancellationToken: CancellationToken.None);
+            var task2 = mediator.SubscribeAsync(subscriber2, enableBuffering: false, cancellationToken: CancellationToken.None);
+
+            // Act
+            var result = mediator.Publish("test", cts.Token);
+
+            // Assert - Should return true and stop early without delivering to all subscribers
+            Assert.True(result);
+        }
+
+        [Fact]
+        public async Task Publish_PassesCancellationTokenToSubscriber()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+            
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                receivedToken = ct;
+                await Task.CompletedTask;
+                return true;
+            };
+
+            using var cts = new CancellationTokenSource();
+            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: CancellationToken.None);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var result = mediator.Publish("test", cts.Token);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+            
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task PublishAsync_PassesCancellationTokenThrough()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+            
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                receivedToken = ct;
+                await Task.CompletedTask;
+                return true;
+            };
+
+            using var cts = new CancellationTokenSource();
+            var subscribeTask = mediator.SubscribeAsync(handler, enableBuffering: false, cancellationToken: CancellationToken.None);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var result = await mediator.PublishAsync("test", cts.Token);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+            
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task Subscriber_OnNext_ReceivesCancellationToken()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken receivedToken = CancellationToken.None;
+
+            var subscriber = new TestSubscriberWithTokenCapture((token) => receivedToken = token);
+            using var cts = new CancellationTokenSource();
+            
+            var subscribeTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, cancellationToken: CancellationToken.None);
+            await Task.Delay(50); // Let subscription start
+
+            // Act
+            var result = mediator.Publish("test", cts.Token);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+            
+            cts.Cancel();
+        }
+
+        private class TestSubscriberWithTokenCapture : ISubscriber<string>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestSubscriberWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        #endregion
     }
 }

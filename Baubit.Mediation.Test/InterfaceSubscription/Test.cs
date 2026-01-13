@@ -148,6 +148,43 @@ namespace Baubit.Mediation.Test.InterfaceSubscription
         }
 
         [Fact]
+        public void Handle_PassesCancellationTokenToSubscriber()
+        {
+            // Arrange
+            CancellationToken receivedToken = CancellationToken.None;
+            var subscriber = new TestSubscriberWithTokenCapture((token) => receivedToken = token);
+            var subscription = new Baubit.Mediation.Internals.InterfaceSubscription<string>(subscriber, false, CancellationToken.None);
+            var cts = new CancellationTokenSource();
+
+            // Act
+            var result = subscription.Handle("test", cts.Token);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+        }
+
+        private class TestSubscriberWithTokenCapture : ISubscriber<string>
+        {
+            private readonly Action<CancellationToken> _tokenCapture;
+
+            public TestSubscriberWithTokenCapture(Action<CancellationToken> tokenCapture)
+            {
+                _tokenCapture = tokenCapture;
+            }
+
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
+            {
+                _tokenCapture(cancellationToken);
+                return true;
+            }
+
+            public bool OnError(Exception error) => true;
+            public bool OnCompleted() => true;
+            public void Dispose() { }
+        }
+
+        [Fact]
         public void Dispose_MultipleTimes_DoesNotThrow()
         {
             // Arrange

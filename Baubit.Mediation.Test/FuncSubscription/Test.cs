@@ -149,5 +149,27 @@ namespace Baubit.Mediation.Test.FuncSubscription
             // Assert
             Assert.True(result);
         }
+
+        [Fact]
+        public void Handle_PassesCancellationTokenToHandler()
+        {
+            // Arrange
+            CancellationToken receivedToken = CancellationToken.None;
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                receivedToken = ct;
+                await Task.CompletedTask;
+                return true;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+            var cts = new CancellationTokenSource();
+
+            // Act
+            var result = subscription.Handle("test", cts.Token);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
+        }
     }
 }
