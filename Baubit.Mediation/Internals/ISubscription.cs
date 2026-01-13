@@ -40,6 +40,7 @@ namespace Baubit.Mediation.Internals
         /// Handles a notification by delivering it directly to the subscriber without buffering.
         /// </summary>
         /// <param name="notification">The notification to handle.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during notification handling.</param>
         /// <returns><c>true</c> if the notification was processed successfully; otherwise <c>false</c>.</returns>
         bool Handle(T notification, CancellationToken cancellationToken = default);
     }

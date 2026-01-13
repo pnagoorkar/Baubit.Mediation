@@ -3,6 +3,9 @@ using System.Threading;
 
 namespace Baubit.Mediation
 {
+    /// <summary>
+    /// Non-generic base interface for all subscribers. Inherits from <see cref="IDisposable"/> to allow cleanup of resources.
+    /// </summary>
     public interface ISubscriber : IDisposable
     {
 
@@ -17,6 +20,7 @@ namespace Baubit.Mediation
         /// Called when a new notification is received.
         /// </summary>
         /// <param name="next">The notification value.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during notification processing.</param>
         /// <returns><c>true</c> if the notification was processed successfully; otherwise <c>false</c>.</returns>
         bool OnNext(T next, CancellationToken cancellationToken = default);
 
@@ -45,6 +49,7 @@ namespace Baubit.Mediation
         /// <typeparam name="T">The notification type.</typeparam>
         /// <param name="subscriber">The subscriber instance.</param>
         /// <param name="next">The notification value.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during notification processing.</param>
         /// <returns><c>true</c> if OnNext or OnError returned true; otherwise <c>false</c>.</returns>
         public static bool OnNextOrError<T>(this ISubscriber<T> subscriber, T next, CancellationToken cancellationToken = default)
         {

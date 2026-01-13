@@ -24,6 +24,10 @@ namespace Baubit.Mediation.Internals
         /// When true, messages are queued in the cache before delivery. When false, messages are delivered directly.
         /// </summary>
         public bool EnableBuffering { get; private set; }
+        
+        /// <summary>
+        /// Gets the cancellation token to monitor for cancellation requests.
+        /// </summary>
         public CancellationToken CancellationToken { get; private set; }
 
         /// <summary>
@@ -92,6 +96,7 @@ namespace Baubit.Mediation.Internals
 
         }
 
+        /// <inheritdoc/>
         public abstract bool Handle(T notification, CancellationToken cancellationToken = default);
     }
 

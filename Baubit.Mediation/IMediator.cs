@@ -16,6 +16,7 @@ namespace Baubit.Mediation
         /// </summary>
         /// <typeparam name="T">The notification type.</typeparam>
         /// <param name="notification">The notification object to publish.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during notification delivery.</param>
         /// <returns><c>true</c> if the notification was successfully processed; otherwise <c>false</c>.</returns>
         bool Publish<T>(T notification, CancellationToken cancellationToken = default);
 
