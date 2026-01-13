@@ -1,7 +1,3 @@
-using Baubit.Caching;
-using Baubit.Caching.InMemory;
-using Microsoft.Extensions.Logging;
-
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,7 +24,7 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
 
         public class TestAsyncHandler : IAsyncRequestHandler<TestRequest, TestResponse>
         {
-            public async Task<TestResponse> HandleAsync(TestRequest request)
+            public async Task<TestResponse> HandleAsync(TestRequest request, CancellationToken cancellationToken = default)
             {
                 await Task.Delay(1);
                 return new TestResponse { Result = $"AsyncHandled: {request.Value}" };
@@ -37,17 +33,6 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
 
         #endregion
 
-        private static long _nextId = 0;
-        private IOrderedCache<long, object> CreateCache()
-        {
-            var configuration = new Baubit.Caching.Configuration();
-            var loggerFactory = LoggerFactory.Create(b => { });
-            Func<long?, long?> nextIdFactory = (lastId) => Interlocked.Increment(ref _nextId);
-            var store = new Baubit.Caching.InMemory.Store<long, object>(null, null, nextIdFactory, loggerFactory);
-            var metadata = new Baubit.Caching.InMemory.Metadata<long>(configuration, loggerFactory);
-            return new Baubit.Caching.OrderedCache<long, object>(configuration, null, store, metadata, loggerFactory);
-        }
-
         [Fact]
         public void Constructor_WithValidParameters_CreatesInstance()
         {
@@ -55,7 +40,7 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
             var handler = new TestAsyncHandler();
 
             // Act
-            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true, CancellationToken.None);
 
             // Assert
             Assert.NotNull(subscription);
@@ -64,20 +49,30 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
         }
 
         [Fact]
-        public async Task DispatchAsync_WithRequest_ReturnsResponse()
+        public void Constructor_WithBufferingDisabled_CreatesInstance()
         {
             // Arrange
             var handler = new TestAsyncHandler();
-            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, false);
+
+            // Act
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, false, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(subscription);
+            Assert.False(subscription.EnableBuffering);
+            Assert.Same(handler, subscription.AsyncHandler);
+        }
+
+        [Fact]
+        public async Task HandleAsync_WithRequest_ReturnsResponse()
+        {
+            // Arrange
+            var handler = new TestAsyncHandler();
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, false, CancellationToken.None);
             var request = new TestRequest { Value = "direct" };
 
             // Act
-            var response = await subscription.PublishAsync(
-                request,
-                CreateCache(),
-                Baubit.Identity.GuidV7Generator.CreateNew(),
-                null,
-                CancellationToken.None);
+            var response = await subscription.HandleAsync(request, CancellationToken.None);
 
             // Assert
             Assert.NotNull(response);
@@ -85,16 +80,62 @@ namespace Baubit.Mediation.Test.AsyncInterfaceSubscription
         }
 
         [Fact]
+        public async Task HandleAsync_CancellationTokenIgnored_StillInvokesHandler()
+        {
+            // Arrange
+            var handler = new TestAsyncHandler();
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, false, CancellationToken.None);
+            var request = new TestRequest { Value = "test" };
+            var cts = new CancellationTokenSource();
+
+            // Act - Note: The handler doesn't accept cancellation token, so it's not used
+            var response = await subscription.HandleAsync(request, cts.Token);
+
+            // Assert
+            Assert.NotNull(response);
+            Assert.Equal("AsyncHandled: test", response.Result);
+        }
+
+        [Fact]
         public void Dispose_ReleasesHandler()
         {
             // Arrange
             var handler = new TestAsyncHandler();
-            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true, CancellationToken.None);
 
             // Act
             subscription.Dispose();
 
             // Assert
+            Assert.Null(subscription.AsyncHandler);
+        }
+
+        [Fact]
+        public void CancellationToken_IsSetFromConstructor()
+        {
+            // Arrange
+            var handler = new TestAsyncHandler();
+            var cts = new CancellationTokenSource();
+
+            // Act
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true, cts.Token);
+
+            // Assert
+            Assert.Equal(cts.Token, subscription.CancellationToken);
+        }
+
+        [Fact]
+        public void Dispose_MultipleTimes_DoesNotThrow()
+        {
+            // Arrange
+            var handler = new TestAsyncHandler();
+            var subscription = new Baubit.Mediation.Internals.AsyncInterfaceSubscription<TestRequest, TestResponse>(handler, true, CancellationToken.None);
+
+            // Act & Assert - Multiple disposes should not throw
+            subscription.Dispose();
+            subscription.Dispose();
+            subscription.Dispose();
+
             Assert.Null(subscription.AsyncHandler);
         }
     }

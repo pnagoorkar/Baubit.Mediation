@@ -1,6 +1,3 @@
-using Baubit.Caching;
-using Baubit.Caching.InMemory;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,17 +10,6 @@ namespace Baubit.Mediation.Test.FuncSubscription
     /// </summary>
     public class Test
     {
-        private static long _nextId = 0;
-        private IOrderedCache<long, object> CreateCache()
-        {
-            var configuration = new Baubit.Caching.Configuration();
-            var loggerFactory = LoggerFactory.Create(b => { });
-            Func<long?, long?> nextIdFactory = (lastId) => Interlocked.Increment(ref _nextId);
-            var store = new Baubit.Caching.InMemory.Store<long, object>(null, null, nextIdFactory, loggerFactory);
-            var metadata = new Baubit.Caching.InMemory.Metadata<long>(configuration, loggerFactory);
-            return new Baubit.Caching.OrderedCache<long, object>(configuration, null, store, metadata, loggerFactory);
-        }
-
         [Fact]
         public void Constructor_WithValidParameters_CreatesInstance()
         {
@@ -31,7 +17,7 @@ namespace Baubit.Mediation.Test.FuncSubscription
             Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
 
             // Act
-            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true, CancellationToken.None);
 
             // Assert
             Assert.NotNull(subscription);
@@ -40,7 +26,22 @@ namespace Baubit.Mediation.Test.FuncSubscription
         }
 
         [Fact]
-        public void Publish_Unbuffered_InvokesHandler()
+        public void Constructor_WithBufferingDisabled_CreatesInstance()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
+
+            // Act
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(subscription);
+            Assert.False(subscription.EnableBuffering);
+            Assert.Same(handler, subscription.NotificationHandler);
+        }
+
+        [Fact]
+        public void Handle_Unbuffered_InvokesHandler()
         {
             // Arrange
             var received = "";
@@ -50,10 +51,10 @@ namespace Baubit.Mediation.Test.FuncSubscription
                 await Task.CompletedTask;
                 return true;
             };
-            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
 
             // Act
-            var result = subscription.Publish("test", CreateCache(), CancellationToken.None);
+            var result = subscription.Handle("test");
 
             // Assert
             Assert.True(result);
@@ -61,16 +62,34 @@ namespace Baubit.Mediation.Test.FuncSubscription
         }
 
         [Fact]
-        public void Publish_WithNullHandler_ReturnsTrue()
+        public void Handle_WithNullHandler_ReturnsTrue()
         {
             // Arrange
-            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(null, false);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(null, false, CancellationToken.None);
 
             // Act
-            var result = subscription.Publish("test", CreateCache(), CancellationToken.None);
+            var result = subscription.Handle("test");
 
             // Assert
             Assert.True(result);
+        }
+
+        [Fact]
+        public void Handle_HandlerReturnsFalse_ReturnsFalse()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                await Task.CompletedTask;
+                return false;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+
+            // Act
+            var result = subscription.Handle("test");
+
+            // Assert
+            Assert.False(result);
         }
 
         [Fact]
@@ -78,13 +97,79 @@ namespace Baubit.Mediation.Test.FuncSubscription
         {
             // Arrange
             Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
-            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true);
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true, CancellationToken.None);
 
             // Act
             subscription.Dispose();
 
             // Assert
             Assert.Null(subscription.NotificationHandler);
+        }
+
+        [Fact]
+        public void CancellationToken_IsSetFromConstructor()
+        {
+            // Arrange
+            var cts = new CancellationTokenSource();
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
+
+            // Act
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true, cts.Token);
+
+            // Assert
+            Assert.Equal(cts.Token, subscription.CancellationToken);
+        }
+
+        [Fact]
+        public void Dispose_MultipleTimes_DoesNotThrow()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, true, CancellationToken.None);
+
+            // Act & Assert - Multiple disposes should not throw
+            subscription.Dispose();
+            subscription.Dispose();
+            subscription.Dispose();
+
+            Assert.Null(subscription.NotificationHandler);
+        }
+
+        [Fact]
+        public void Handle_AfterDispose_WithNullHandler_ReturnsTrue()
+        {
+            // Arrange
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) => { await Task.CompletedTask; return true; };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+            subscription.Dispose();
+
+            // Act
+            var result = subscription.Handle("test");
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void Handle_PassesCancellationTokenToHandler()
+        {
+            // Arrange
+            CancellationToken receivedToken = CancellationToken.None;
+            Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
+            {
+                receivedToken = ct;
+                await Task.CompletedTask;
+                return true;
+            };
+            var subscription = new Baubit.Mediation.Internals.FuncSubscription<string>(handler, false, CancellationToken.None);
+            var cts = new CancellationTokenSource();
+
+            // Act
+            var result = subscription.Handle("test", cts.Token);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal(cts.Token, receivedToken);
         }
     }
 }

@@ -1,7 +1,4 @@
-﻿using Baubit.Caching;
-using Baubit.Identity;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation.Internals
@@ -27,44 +24,23 @@ namespace Baubit.Mediation.Internals
         /// When true, messages are queued in the cache before delivery. When false, messages are delivered directly.
         /// </summary>
         public bool EnableBuffering { get; private set; }
+        
+        /// <summary>
+        /// Gets the cancellation token to monitor for cancellation requests.
+        /// </summary>
+        public CancellationToken CancellationToken { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Subscription"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered message delivery; false for direct delivery.</param>
-        protected Subscription(bool enableBuffering)
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+        protected Subscription(bool enableBuffering, 
+                               CancellationToken cancellationToken)
         {
             EnableBuffering = enableBuffering;
+            CancellationToken = cancellationToken;
         }
-
-        /// <summary>
-        /// Runs the subscription asynchronously, processing messages from the cache until cancelled.
-        /// If buffering is enabled, processes messages from the enumerator. Otherwise, waits indefinitely until cancellation.
-        /// </summary>
-        /// <param name="cache">The ordered cache containing messages.</param>
-        /// <param name="enumerator">The asynchronous enumerator for reading messages from the cache. Can be null if buffering is disabled.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of the subscription.</param>
-        /// <returns>A task that completes when the subscription ends, returning true on successful completion.</returns>
-        public async Task<bool> RunAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default)
-        {
-            if (EnableBuffering) await ProcessBufferAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
-            else
-            {
-                // Await indefinitely while the cancellation token is not cancelled
-                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Processes buffered messages from the cache enumerator. Must be implemented by derived classes to define message handling logic.
-        /// </summary>
-        /// <param name="cache">The ordered cache containing messages.</param>
-        /// <param name="enumerator">The asynchronous enumerator for reading messages from the cache.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of message processing.</param>
-        /// <returns>A task that completes when message processing ends, returning true on successful completion.</returns>
-        protected abstract Task<bool> ProcessBufferAsync(IOrderedCache<long, object> cache, IAsyncEnumerator<IEntry<long, object>> enumerator, CancellationToken cancellationToken = default);
-
         /// <summary>
         /// Performs internal cleanup of subscription-specific resources. Must be implemented by derived classes.
         /// </summary>
@@ -113,31 +89,15 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription{T}"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered notification delivery; false for direct delivery.</param>
-        protected Subscription(bool enableBuffering) : base(enableBuffering)
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+        protected Subscription(bool enableBuffering,
+                               CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
 
         }
 
-        /// <summary>
-        /// Publishes a notification either to the cache (if buffered) or directly to the handler (if unbuffered).
-        /// </summary>
-        /// <param name="notification">The notification to publish.</param>
-        /// <param name="cache">The ordered cache for buffered delivery.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of the operation.</param>
-        /// <returns>True if the notification was successfully published; otherwise false.</returns>
-        public bool Publish(T notification, IOrderedCache<long, object> cache, CancellationToken cancellationToken = default)
-        {
-            if (EnableBuffering) return cache.Add(notification, out _);
-            else return DispatchAsync(notification).ConfigureAwait(false).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Dispatches a notification directly to the handler without buffering. Must be implemented by derived classes.
-        /// </summary>
-        /// <param name="notification">The notification to dispatch.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of the operation.</param>
-        /// <returns>A task that completes when the notification is handled, returning true on success.</returns>
-        protected abstract Task<bool> DispatchAsync(T notification, CancellationToken cancellationToken = default);
+        /// <inheritdoc/>
+        public abstract bool Handle(T notification, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -157,52 +117,14 @@ namespace Baubit.Mediation.Internals
         /// Initializes a new instance of the <see cref="Subscription{TRequest, TResponse}"/> class.
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered request handling with tracking; false for direct handling.</param>
-        protected Subscription(bool enableBuffering) : base(enableBuffering)
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+        protected Subscription(bool enableBuffering,
+                               CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
         {
 
         }
 
-        /// <summary>
-        /// Publishes a request asynchronously and awaits the response.
-        /// If buffering is enabled, tracks the request in the cache and waits for the tracked response.
-        /// If buffering is disabled, dispatches the request directly to the handler.
-        /// </summary>
-        /// <param name="request">The request to publish.</param>
-        /// <param name="cache">The ordered cache for tracked request/response pairs.</param>
-        /// <param name="identityGenerator">Generator for creating unique request identifiers.</param>
-        /// <param name="name">Optional name for the cache enumerator.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of the operation.</param>
-        /// <returns>A task that completes with the response from the handler.</returns>
-        /// <exception cref="TaskCanceledException">Thrown if the operation is cancelled before a response is received.</exception>
-        public async Task<TResponse> PublishAsync(TRequest request, IOrderedCache<long, object> cache, GuidV7Generator identityGenerator, string name = null, CancellationToken cancellationToken = default)
-        {
-            if (EnableBuffering)
-            {
-                var enumerator = cache.GetFutureAsyncEnumerator(name, cancellationToken);
-                var trackedRequest = new TrackedRequest<TRequest, TResponse>(identityGenerator.GetNext(), request);
-                cache.Add(trackedRequest, out var entry);
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
-                {
-                    if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedResponse.ForRequest == trackedRequest.Id)
-                    {
-                        return trackedResponse.Response;
-                    }
-                }
-                // Enumerator completed without finding a response (cancellation or unexpected cache issue)
-                throw new TaskCanceledException("Response not received before enumeration ended");
-            }
-            else
-            {
-                return await DispatchAsync(request, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        /// <summary>
-        /// Dispatches a request directly to the handler without buffering. Must be implemented by derived classes.
-        /// </summary>
-        /// <param name="request">The request to dispatch.</param>
-        /// <param name="cancellationToken">Token to signal cancellation of the operation.</param>
-        /// <returns>A task that completes with the response from the handler.</returns>
-        protected abstract Task<TResponse> DispatchAsync(TRequest request, CancellationToken cancellationToken = default);
+        ///<inheritdoc/>
+        public abstract Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }

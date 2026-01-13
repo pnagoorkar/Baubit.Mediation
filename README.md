@@ -54,7 +54,7 @@ public class GetUserResponse : IResponse
 // Define handler
 public class GetUserHandler : IRequestHandler<GetUserRequest, GetUserResponse>
 {
-    public GetUserResponse Handle(GetUserRequest request)
+    public GetUserResponse Handle(GetUserRequest request, CancellationToken cancellationToken = default)
     {
         return new GetUserResponse { Name = $"User {request.UserId}" };
     }
@@ -74,7 +74,7 @@ Console.WriteLine(response.Name); // "User 1"
 - Cache-backed async processing pipeline
 - Notification pub/sub with typed subscribers
 - **Notification and request delivery with buffering control**
-  - **Buffered mode (`enableBuffering: true`)**: Messages passes through an ordered cache before delivery. Useful when handlers are required to process events in the order of occurrence and/or the system requires durability/rewind-replay (look at [Baubit.Caching.LiteDB](https://github.com/pnagoorkar/Baubit.Caching.LiteDB) for persistence)
+  - **Buffered mode (`enableBuffering: true`)**: Messages pass through an ordered cache before delivery. Useful when handlers are required to process events in the order of occurrence and/or the system requires durability/rewind-replay (look at [Baubit.Caching.LiteDB](https://github.com/pnagoorkar/Baubit.Caching.LiteDB) for persistence)
   - **Unbuffered mode (`enableBuffering: false`)**: Messages delivered directly to handlers for low-latency processing
 - Handler registration with cancellation token lifecycle
 - Thread-safe concurrent access
@@ -86,25 +86,25 @@ Console.WriteLine(response.Name); // "User 1"
 
 | Method | Description |
 |--------|-------------|
-| `Publish<T>(notification)` | Publish a notification synchronously to subscribers |
-| `PublishAsync<T>(notification, ct)` | Publish a notification asynchronously (fire and forget) |
-| `PublishAsync<TRequest, TResponse>(request, ct)` | Publish a request and await response from registered handler |
-| `SubscribeAsync<T>(subscriber, enableBuffering, ct)` | Subscribe to notifications with `ISubscriber<T>` |
-| `SubscribeAsync<T>(subscriber, enableBuffering, name, ct)` | Subscribe to notifications with named cache enumerator |
-| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, ct)` | Register request handler with `IRequestHandler<TRequest, TResponse>` |
-| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, ct)` | Register request handler with named cache enumerator |
-| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, ct)` | Register async request handler with `IAsyncRequestHandler<TRequest, TResponse>` |
-| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, ct)` | Register async request handler with named cache enumerator |
-| `SubscribeAsync<TNotification>(func, enableBuffering, ct)` | Subscribe to notifications using function handler |
-| `SubscribeAsync<TNotification>(func, enableBuffering, name, ct)` | Subscribe to notifications using function handler with named enumerator |
-| `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, ct)` | Register async request handler using function |
-| `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, name, ct)` | Register async request handler using function with named enumerator |
+| `Publish<T>(notification, cancellationToken)` | Publish a notification synchronously to subscribers. Checks cancellation before delivering to each subscriber. |
+| `PublishAsync<T>(notification, cancellationToken)` | Publish a notification asynchronously (fire and forget). Passes cancellation token to Publish. |
+| `PublishAsync<TRequest, TResponse>(request, cancellationToken)` | Publish a request and await response from registered handler. Cancellation token is monitored during processing. |
+| `SubscribeAsync<T>(subscriber, enableBuffering, cancellationToken)` | Subscribe to notifications with `ISubscriber<T>`. Cancellation token ends subscription. |
+| `SubscribeAsync<T>(subscriber, enableBuffering, name, cancellationToken)` | Subscribe to notifications with named cache enumerator. |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, cancellationToken)` | Register request handler with `IRequestHandler<TRequest, TResponse>`. |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, cancellationToken)` | Register request handler with named cache enumerator. |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, cancellationToken)` | Register async request handler with `IAsyncRequestHandler<TRequest, TResponse>`. |
+| `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, cancellationToken)` | Register async request handler with named cache enumerator. |
+| `SubscribeAsync<TNotification>(func, enableBuffering, cancellationToken)` | Subscribe to notifications using function handler. Function receives cancellation token. |
+| `SubscribeAsync<TNotification>(func, enableBuffering, name, cancellationToken)` | Subscribe to notifications using function handler with named enumerator. |
+| `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, cancellationToken)` | Register async request handler using function. Function receives cancellation token. |
+| `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, name, cancellationToken)` | Register async request handler using function with named enumerator. |
 
 ### Handler Interfaces
 
-- `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest)` method
-- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest)` method
-- `ISubscriber<T>` - Notification subscriber
+- `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
+- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
+- `ISubscriber<T>` - Notification subscriber with `OnNext(T, CancellationToken)` method. Receives subscription's cancellation token.
 
 ## Usage Examples
 
@@ -123,7 +123,7 @@ public class OrderCreated
 // Define subscriber
 public class OrderNotificationSubscriber : ISubscriber<OrderCreated>
 {
-    public bool OnNext(OrderCreated notification)
+    public bool OnNext(OrderCreated notification, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"Order {notification.OrderId} created: ${notification.Amount}");
         return true;

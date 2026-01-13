@@ -59,19 +59,26 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public bool Publish<T>(T notification)
+        public bool Publish<T>(T notification, CancellationToken cancellationToken = default)
         {
             var retVal = true;
+            var postedToCache = false;
             if (!activeSubscriptions.TryGetValue(typeof(ISubscription<T>), out var subscriptions)) return true;
             foreach (var subscription in subscriptions)
             {
-                if (subscription is ISubscription<T> notificationSubscription)
+                if (cancellationToken.IsCancellationRequested) return true;
+                if (subscription.EnableBuffering)
                 {
-                    retVal &= notificationSubscription.Publish(notification, cache);
+                    if (!postedToCache)
+                    {
+                        postedToCache = cache.Add(notification, out _);
+                        retVal &= postedToCache;
+                    }
+                    else continue; // the notification was already posted to the cache.
                 }
                 else
                 {
-                    // Unhandled. It is expected that all subscriptions for a given T would be of type ISubscription<T>
+                    retVal &= ((ISubscription<T>)subscription).Handle(notification, subscription.CancellationToken);
                 }
             }
             return retVal;
@@ -80,7 +87,7 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Publish(notification));
+            return Task.FromResult(Publish(notification, cancellationToken));
         }
 
         /// <inheritdoc/>
@@ -93,7 +100,22 @@ namespace Baubit.Mediation
             if (subscription == null) throw new InvalidOperationException("No handler registered!");
             if (subscription is not ISubscription<TRequest, TResponse> requestSubscription) throw new InvalidOperationException($"Unexpected type of handler registered for {typeof(TRequest).AssemblyQualifiedName}");
 
-            return await requestSubscription.PublishAsync(request, cache, idGenerator, null, cancellationToken).ConfigureAwait(false);
+            if (requestSubscription.EnableBuffering)
+            {
+                var enumerator = cache.GetFutureAsyncEnumerator(null, cancellationToken);
+                var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
+                cache.Add(trackedRequest, out var entry);
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedResponse.ForRequest == trackedRequest.Id)
+                    {
+                        return trackedResponse.Response;
+                    }
+                }
+                // Enumerator completed without finding a response (cancellation or unexpected cache issue)
+                throw new TaskCanceledException("Response not received before enumeration ended");
+            }
+            else return await requestSubscription.HandleAsync(request, subscription.CancellationToken);
         }
 
         public Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
@@ -109,13 +131,25 @@ namespace Baubit.Mediation
         {
             if (requestHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(null, cancellationToken) : null;
-            var subscription = new SyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
+            var subscription = new SyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering, cancellationToken);
             var subscriptions = new List<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = requestHandler.Handle(trackedRequest.Request, subscription.CancellationToken);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                return true;
             }
             finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
@@ -131,13 +165,25 @@ namespace Baubit.Mediation
         {
             if (subscriber == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
-            var subscription = new InterfaceSubscription<T>(subscriber, enableBuffering);
+            var subscription = new InterfaceSubscription<T>(subscriber, enableBuffering, cancellationToken);
             var subscriptions = new ConcurrentList<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<T>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) cachedSubscription.Add(subscription); // Another subscriber raced to create the subscriptions collection. No worries.
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
+                var retVal = true;
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is T notification)
+                        {
+                            retVal &= subscriber.OnNextOrError(notification, subscription.CancellationToken);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return retVal;
             }
             finally { cachedSubscription.Remove(subscription); }
         }
@@ -157,13 +203,25 @@ namespace Baubit.Mediation
         {
             if (requestHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
-            var subscription = new AsyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering);
+            var subscription = new AsyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering, cancellationToken);
             var subscriptions = new List<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = await requestHandler.HandleAsync(trackedRequest.Request, subscription.CancellationToken).ConfigureAwait(false);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return true;
             }
             finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
@@ -179,13 +237,25 @@ namespace Baubit.Mediation
         {
             if (notificationHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
-            var subscription = new FuncSubscription<TNotification>(notificationHandler, enableBuffering);
+            var subscription = new FuncSubscription<TNotification>(notificationHandler, enableBuffering, cancellationToken);
             var subscriptions = new ConcurrentList<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TNotification>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) cachedSubscription.Add(subscription); // Another subscriber raced to create the subscriptions collection. No worries.
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
+                var retVal = true;
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TNotification notification)
+                        {
+                            retVal &= await notificationHandler.Invoke(notification, subscription.CancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return retVal;
             }
             finally { cachedSubscription.Remove(subscription); }
         }
@@ -205,13 +275,25 @@ namespace Baubit.Mediation
         {
             if (asyncHandler == null) return false;
             await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
-            var subscription = new AsyncFuncSubscription<TRequest, TResponse>(asyncHandler, enableBuffering);
+            var subscription = new AsyncFuncSubscription<TRequest, TResponse>(asyncHandler, enableBuffering, cancellationToken);
             var subscriptions = new List<ISubscription> { subscription };
             var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
             if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                return await subscription.RunAsync(cache, enumerator, cancellationToken).ConfigureAwait(false);
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = await asyncHandler.Invoke(trackedRequest.Request, subscription.CancellationToken).ConfigureAwait(false);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return true;
             }
             finally { cachedSubscription.Remove(subscriptions[0]); }
         }

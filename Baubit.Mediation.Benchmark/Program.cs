@@ -29,7 +29,7 @@ public class BaubitNotification
 
 public class BaubitAsyncHandler : IAsyncRequestHandler<BaubitRequest, BaubitResponse>
 {
-    public Task<BaubitResponse> HandleAsync(BaubitRequest request)
+    public Task<BaubitResponse> HandleAsync(BaubitRequest request, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new BaubitResponse { Result = request.Value * 2 });
     }
@@ -39,7 +39,7 @@ public class BaubitNotificationSubscriber : ISubscriber<BaubitNotification>
 {
     private int _count = 0;
 
-    public bool OnNext(BaubitNotification next)
+    public bool OnNext(BaubitNotification next, CancellationToken cancellationToken = default)
     {
         System.Threading.Interlocked.Increment(ref _count);
         return true;
