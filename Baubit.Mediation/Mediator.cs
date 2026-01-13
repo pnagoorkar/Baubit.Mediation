@@ -1,11 +1,12 @@
 ﻿using Baubit.Caching;
 using Baubit.Collections;
 using Baubit.Identity;
-using Baubit.Tasks;
+using Baubit.Mediation.Internals;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,15 +17,32 @@ namespace Baubit.Mediation
     /// and notifications to subscribers using an ordered cache for message persistence.
     /// Thread-safe for concurrent use.
     /// </summary>
-    public class Mediator : IMediator
+    public class Mediator : IMediator, IDisposable
     {
+        /// <summary>
+        /// Tracks whether this instance has been disposed.
+        /// </summary>
         private bool disposedValue;
-        private readonly ConcurrentDictionary<Type, IRequestHandler> syncHandlersByType = new ConcurrentDictionary<Type, IRequestHandler>();
-        private readonly ConcurrentDictionary<Type, IList<(ISubscriber, bool)>> subscribersByType = new ConcurrentDictionary<Type, IList<(ISubscriber, bool)>>();
-        private IList<IRequestHandler> asyncHandlers = new ConcurrentList<IRequestHandler>();
-        private ConcurrentDictionary<Type, Delegate> asyncHandlerCallbacks = new ConcurrentDictionary<Type, Delegate>();
+
+        /// <summary>
+        /// Dictionary mapping subscription types to their active subscription lists.
+        /// Thread-safe for concurrent access.
+        /// </summary>
+        private readonly ConcurrentDictionary<Type, IList<ISubscription>> activeSubscriptions = new ConcurrentDictionary<Type, IList<ISubscription>>();
+
+        /// <summary>
+        /// The ordered cache used for storing and retrieving messages.
+        /// </summary>
         private IOrderedCache<long, object> cache;
+
+        /// <summary>
+        /// Logger for diagnostic information.
+        /// </summary>
         private ILogger<Mediator> logger;
+
+        /// <summary>
+        /// Generator for creating unique GUIDv7 identifiers for tracked requests.
+        /// </summary>
         private GuidV7Generator idGenerator;
 
         /// <summary>
@@ -41,37 +59,35 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public bool Publish<T>(T notification)
+        public bool Publish<T>(T notification, CancellationToken cancellationToken = default)
         {
             var retVal = true;
-            if (subscribersByType.TryGetValue(typeof(ISubscriber<T>), out var subscriptions))
+            var postedToCache = false;
+            if (!activeSubscriptions.TryGetValue(typeof(ISubscription<T>), out var subscriptions)) return true;
+            foreach (var subscription in subscriptions)
             {
-                foreach (var subBufPair in subscriptions)
+                if (cancellationToken.IsCancellationRequested) return true;
+                if (subscription.EnableBuffering)
                 {
-                    if (subBufPair.Item2)
+                    if (!postedToCache)
                     {
-                        retVal &= cache.Add(notification, out _);
+                        postedToCache = cache.Add(notification, out _);
+                        retVal &= postedToCache;
                     }
-                    else
-                    {
-                        retVal &= ((ISubscriber<T>)subBufPair.Item1).OnNextOrError(notification);
-                    }
+                    else continue; // the notification was already posted to the cache.
+                }
+                else
+                {
+                    retVal &= ((ISubscription<T>)subscription).Handle(notification, subscription.CancellationToken);
                 }
             }
             return retVal;
         }
 
         /// <inheritdoc/>
-        public TResponse Publish<TRequest, TResponse>(TRequest request)
-            where TRequest : IRequest<TResponse>
-            where TResponse : IResponse
+        public Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
         {
-            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
-            if (!syncHandlersByType.TryGetValue(handlerType, out var handler))
-            {
-                throw new InvalidOperationException("No handler registered!");
-            }
-            return ((IRequestHandler<TRequest, TResponse>)handler).Handle(request);
+            return Task.FromResult(Publish(notification, cancellationToken));
         }
 
         /// <inheritdoc/>
@@ -79,162 +95,213 @@ namespace Baubit.Mediation
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
-            if (!syncHandlersByType.TryGetValue(handlerType, out var handler))
-            {
-                throw new InvalidOperationException("No handler registered!");
-            }
-            return await ((IRequestHandler<TRequest, TResponse>)handler).HandleSyncAsync(request);
-        }
+            if (!activeSubscriptions.TryGetValue(typeof(ISubscription<TRequest, TResponse>), out var subscriptions)) throw new InvalidOperationException("No handler registered!");
+            var subscription = subscriptions.SingleOrDefault();
+            if (subscription == null) throw new InvalidOperationException("No handler registered!");
+            if (subscription is not ISubscription<TRequest, TResponse> requestSubscription) throw new InvalidOperationException($"Unexpected type of handler registered for {typeof(TRequest).AssemblyQualifiedName}");
 
-        /// <inheritdoc/>
-        public async Task<TResponse> PublishAsyncAsync<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken = default)
-            where TRequest : IRequest<TResponse>
-            where TResponse : IResponse
-        {
-            var linkedCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var enumerator = cache.GetFutureAsyncEnumerator(linkedCTS.Token);
-            var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
-            if (!cache.Add(trackedRequest, out _)) throw new Exception("<TBD>");
-            try
+            if (requestSubscription.EnableBuffering)
             {
+                var enumerator = cache.GetFutureAsyncEnumerator(null, cancellationToken);
+                var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
+                cache.Add(trackedRequest, out var entry);
                 while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                 {
-                    if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedRequest.Id == trackedResponse.ForRequest)
+                    if (enumerator.Current.Value is TrackedResponse<TResponse> trackedResponse && trackedResponse.ForRequest == trackedRequest.Id)
                     {
                         return trackedResponse.Response;
                     }
                 }
+                // Enumerator completed without finding a response (cancellation or unexpected cache issue)
+                throw new TaskCanceledException("Response not received before enumeration ended");
             }
-            finally
-            {
-                linkedCTS.Cancel();
-            }
-            // the assumption is that the cancellation token must have been cancelled for the flow to have reached here without returning directly from the while above
-            // if the code ever reaches here, that assumption must no longer be true
-            throw new TaskCanceledException(string.Empty, null);
+            else return await requestSubscription.HandleAsync(request, subscription.CancellationToken);
         }
 
-        /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber,
-                                                  bool enableBuffering = true,
-                                                  CancellationToken cancellationToken = default)
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
+                                                       bool enableBuffering = true,
+                                                       CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse
         {
-            var subscriberType = typeof(ISubscriber<T>);
-            var subscribers = subscribersByType.GetOrAdd(subscriberType, new ConcurrentList<(ISubscriber, bool)>());
-            var subBufPair = (subscriber, enableBuffering);
+            return SubscribeAsync(requestHandler, enableBuffering, null, cancellationToken);
+        }
+
+        public async Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            if (requestHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(null, cancellationToken) : null;
+            var subscription = new SyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering, cancellationToken);
+            var subscriptions = new List<ISubscription> { subscription };
+            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
+            if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
             try
             {
-                subscribers.Add(subBufPair);
                 if (enableBuffering)
                 {
-                    var enumerator = cache.GetFutureAsyncEnumerator(cancellationToken);
                     while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        if (enumerator.Current.Value is T tItem) subscriber.OnNextOrError(tItem);
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = requestHandler.Handle(trackedRequest.Request, subscription.CancellationToken);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
                     }
-                    return true;
                 }
-                else
-                {
-                    var tcs = new TaskCompletionSource<bool>();
-                    tcs.RegisterCancellationToken(cancellationToken); // subscription ends only when the caller cancels via the cancellationToken
-                    return await tcs.Task;
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                // expected
+                else await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
                 return true;
             }
-            finally
-            {
-
-                subscribers.Remove(subBufPair);
-            }
+            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
 
         /// <inheritdoc/>
-        public bool Subscribe<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,
-                                                   CancellationToken cancellationToken)
-            where TRequest : IRequest<TResponse>
-            where TResponse : IResponse
+        public Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering = true, CancellationToken cancellationToken = default)
         {
-            var handlerType = typeof(IRequestHandler<TRequest, TResponse>);
-            if (!syncHandlersByType.TryAdd(handlerType, requestHandler))
-            {
-                return false;
-            }
-
-            CancellationTokenRegistration registration = default;
-            registration = cancellationToken.Register(() =>
-            {
-                syncHandlersByType.TryRemove(handlerType, out _);
-                registration.Dispose();
-            });
-            return true;
+            return SubscribeAsync(subscriber, enableBuffering, null, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler, CancellationToken cancellationToken = default)
-            where TRequest : IRequest<TResponse>
-            where TResponse : IResponse
+        public async Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
         {
-            asyncHandlers.Add(requestHandler);
+            if (subscriber == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            var subscription = new InterfaceSubscription<T>(subscriber, enableBuffering, cancellationToken);
+            var subscriptions = new ConcurrentList<ISubscription> { subscription };
+            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<T>), subscriptions);
+            if (!ReferenceEquals(cachedSubscription, subscriptions)) cachedSubscription.Add(subscription); // Another subscriber raced to create the subscriptions collection. No worries.
             try
             {
-                var enumerator = cache.GetFutureAsyncEnumerator(cancellationToken);
-
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                var retVal = true;
+                if (enableBuffering)
                 {
-                    if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
                     {
-                        var response = await requestHandler.HandleAsyncAsync(trackedRequest.Request).ConfigureAwait(false);
-                        var trackedResponse = new TrackedResponse<TResponse>(trackedRequest.Id, response);
-                        cache.Add(trackedResponse, out _);
+                        if (enumerator.Current.Value is T notification)
+                        {
+                            retVal &= subscriber.OnNextOrError(notification, subscription.CancellationToken);
+                        }
                     }
                 }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return retVal;
             }
-            finally
-            {
-                asyncHandlers.Remove(requestHandler);
-            }
-            return true;
+            finally { cachedSubscription.Remove(subscription); }
         }
 
         /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, CancellationToken cancellationToken)
-        {
-            await foreach (var tuple in cache.EnumerateFutureAsync<TNotification>(cancellationToken))
-            {
-                var result = await notificationHandler?.Invoke(tuple.Item2, cancellationToken);
-                // Continue processing regardless of handler result
-            }
-            return true;
-        }
-
-        /// <inheritdoc/>
-        public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, CancellationToken cancellationToken)
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler, bool enableBuffering = true, CancellationToken cancellationToken = default)
             where TRequest : IRequest<TResponse>
             where TResponse : IResponse
         {
-            try
-            {
-                var handler = asyncHandlerCallbacks.GetOrAdd(asyncHandler.GetType(), asyncHandler);
-                if (handler != asyncHandler) return false; // Another handler is already subscribed for the given <TRequest, TResponse>. We can only have a single handler for a given TRequest, TResponse pair
-                await foreach (var tuple in cache.EnumerateAsync<TrackedRequest<TRequest, TResponse>>(cancellationToken))
-                {
-                    var response = await asyncHandler(tuple.Item2.Request, cancellationToken);
-                    cache.Add(new TrackedResponse<TResponse>(tuple.Item2.Id, response), out _);
-                }
-                return true;
-            }
-            finally
-            {
-                asyncHandlerCallbacks.TryRemove(asyncHandler.GetType(), out _);
-            }
+            return SubscribeAsync(requestHandler, enableBuffering, null, cancellationToken);
         }
 
+        /// <inheritdoc/>
+        public async Task<bool> SubscribeAsync<TRequest, TResponse>(IAsyncRequestHandler<TRequest, TResponse> requestHandler, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            if (requestHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            var subscription = new AsyncInterfaceSubscription<TRequest, TResponse>(requestHandler, enableBuffering, cancellationToken);
+            var subscriptions = new List<ISubscription> { subscription };
+            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
+            if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
+            try
+            {
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = await requestHandler.HandleAsync(trackedRequest.Request, subscription.CancellationToken).ConfigureAwait(false);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, bool enableBuffering = true, CancellationToken cancellationToken = default)
+        {
+            return SubscribeAsync(notificationHandler, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> SubscribeAsync<TNotification>(Func<TNotification, CancellationToken, Task<bool>> notificationHandler, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
+        {
+            if (notificationHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            var subscription = new FuncSubscription<TNotification>(notificationHandler, enableBuffering, cancellationToken);
+            var subscriptions = new ConcurrentList<ISubscription> { subscription };
+            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TNotification>), subscriptions);
+            if (!ReferenceEquals(cachedSubscription, subscriptions)) cachedSubscription.Add(subscription); // Another subscriber raced to create the subscriptions collection. No worries.
+            try
+            {
+                var retVal = true;
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TNotification notification)
+                        {
+                            retVal &= await notificationHandler.Invoke(notification, subscription.CancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return retVal;
+            }
+            finally { cachedSubscription.Remove(subscription); }
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, bool enableBuffering = true, CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            return SubscribeAsync(asyncHandler, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> SubscribeAsync<TRequest, TResponse>(Func<TRequest, CancellationToken, Task<TResponse>> asyncHandler, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default)
+            where TRequest : IRequest<TResponse>
+            where TResponse : IResponse
+        {
+            if (asyncHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            var subscription = new AsyncFuncSubscription<TRequest, TResponse>(asyncHandler, enableBuffering, cancellationToken);
+            var subscriptions = new List<ISubscription> { subscription };
+            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TResponse>), subscriptions);
+            if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
+            try
+            {
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            var response = await asyncHandler.Invoke(trackedRequest.Request, subscription.CancellationToken).ConfigureAwait(false);
+                            cache.Add(new TrackedResponse<TResponse>(trackedRequest.Id, response), out _);
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            finally { cachedSubscription.Remove(subscriptions[0]); }
+        }
+
+        /// <summary>
+        /// Releases unmanaged and optionally managed resources.
+        /// </summary>
+        /// <param name="disposing">True to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         private void Dispose(bool disposing)
         {
             if (!disposedValue)
@@ -242,10 +309,7 @@ namespace Baubit.Mediation
                 if (disposing)
                 {
                     cache.Dispose();
-                    syncHandlersByType.Clear();
-                    subscribersByType.Clear();
-                    asyncHandlers.Clear();
-                    asyncHandlerCallbacks.Clear();
+                    activeSubscriptions.Clear();
                 }
                 disposedValue = true;
             }

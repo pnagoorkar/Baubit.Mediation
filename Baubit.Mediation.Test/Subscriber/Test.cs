@@ -1,7 +1,4 @@
-﻿using System;
-using Xunit;
-
-namespace Baubit.Mediation.Test.Subscriber
+﻿namespace Baubit.Mediation.Test.Subscriber
 {
     /// <summary>
     /// Tests for <see cref="SubscriberExtensions"/>
@@ -15,7 +12,7 @@ namespace Baubit.Mediation.Test.Subscriber
             public bool IsCompleted { get; private set; }
             public bool ThrowOnNext { get; set; }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 if (ThrowOnNext) throw new InvalidOperationException("OnNext error");
                 LastValue = next;
