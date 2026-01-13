@@ -54,7 +54,7 @@ public class GetUserResponse : IResponse
 // Define handler
 public class GetUserHandler : IRequestHandler<GetUserRequest, GetUserResponse>
 {
-    public GetUserResponse Handle(GetUserRequest request)
+    public GetUserResponse Handle(GetUserRequest request, CancellationToken cancellationToken = default)
     {
         return new GetUserResponse { Name = $"User {request.UserId}" };
     }
