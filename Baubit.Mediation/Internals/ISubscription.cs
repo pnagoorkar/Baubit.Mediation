@@ -41,7 +41,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="notification">The notification to handle.</param>
         /// <returns><c>true</c> if the notification was processed successfully; otherwise <c>false</c>.</returns>
-        bool Handle(T notification);
+        bool Handle(T notification, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

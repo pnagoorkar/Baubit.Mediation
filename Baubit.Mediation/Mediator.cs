@@ -59,13 +59,14 @@ namespace Baubit.Mediation
         }
 
         /// <inheritdoc/>
-        public bool Publish<T>(T notification)
+        public bool Publish<T>(T notification, CancellationToken cancellationToken = default)
         {
             var retVal = true;
             var postedToCache = false;
             if (!activeSubscriptions.TryGetValue(typeof(ISubscription<T>), out var subscriptions)) return true;
             foreach (var subscription in subscriptions)
             {
+                if (cancellationToken.IsCancellationRequested) return true;
                 if (subscription.EnableBuffering)
                 {
                     if (!postedToCache)
@@ -77,7 +78,7 @@ namespace Baubit.Mediation
                 }
                 else
                 {
-                    retVal &= ((ISubscription<T>)subscription).Handle(notification);
+                    retVal &= ((ISubscription<T>)subscription).Handle(notification, cancellationToken);
                 }
             }
             return retVal;
@@ -86,7 +87,7 @@ namespace Baubit.Mediation
         /// <inheritdoc/>
         public Task<bool> PublishAsync<T>(T notification, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Publish(notification));
+            return Task.FromResult(Publish(notification, cancellationToken));
         }
 
         /// <inheritdoc/>
@@ -177,7 +178,7 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is T notification)
                         {
-                            retVal &= subscriber.OnNextOrError(notification);
+                            retVal &= subscriber.OnNextOrError(notification, cancellationToken);
                         }
                     }
                 }

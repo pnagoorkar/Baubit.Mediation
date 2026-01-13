@@ -35,10 +35,10 @@ namespace Baubit.Mediation.Internals
         }
 
         /// <inheritdoc/>
-        public override bool Handle(T notification)
+        public override bool Handle(T notification, CancellationToken cancellationToken = default)
         {
             if (NotificationHandler == null) return true;
-            return NotificationHandler.Invoke(notification, CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+            return NotificationHandler.Invoke(notification, cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         /// <summary>

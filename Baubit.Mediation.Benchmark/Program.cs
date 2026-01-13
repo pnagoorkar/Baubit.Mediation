@@ -39,7 +39,7 @@ public class BaubitNotificationSubscriber : ISubscriber<BaubitNotification>
 {
     private int _count = 0;
 
-    public bool OnNext(BaubitNotification next)
+    public bool OnNext(BaubitNotification next, CancellationToken cancellationToken = default)
     {
         System.Threading.Interlocked.Increment(ref _count);
         return true;

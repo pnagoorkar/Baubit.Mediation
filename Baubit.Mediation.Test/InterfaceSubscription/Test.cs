@@ -1,7 +1,3 @@
-using System;
-using System.Threading;
-using Xunit;
-
 namespace Baubit.Mediation.Test.InterfaceSubscription
 {
     /// <summary>
@@ -16,7 +12,7 @@ namespace Baubit.Mediation.Test.InterfaceSubscription
             public string LastReceived { get; private set; } = "";
             public int CallCount { get; private set; }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 LastReceived = next;
                 CallCount++;
@@ -41,7 +37,7 @@ namespace Baubit.Mediation.Test.InterfaceSubscription
 
         public class TestSubscriberReturnsFalse : ISubscriber<string>
         {
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 return false;
             }

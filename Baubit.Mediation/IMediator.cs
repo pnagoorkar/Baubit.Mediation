@@ -17,7 +17,7 @@ namespace Baubit.Mediation
         /// <typeparam name="T">The notification type.</typeparam>
         /// <param name="notification">The notification object to publish.</param>
         /// <returns><c>true</c> if the notification was successfully processed; otherwise <c>false</c>.</returns>
-        bool Publish<T>(T notification);
+        bool Publish<T>(T notification, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Publishes a notification asynchronously. Fire and forget. Callers can choose to await.

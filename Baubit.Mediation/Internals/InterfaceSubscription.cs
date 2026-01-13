@@ -31,9 +31,9 @@ namespace Baubit.Mediation.Internals
         }
 
         /// <inheritdoc/>
-        public override bool Handle(T notification)
+        public override bool Handle(T notification, CancellationToken cancellationToken = default)
         {
-            return Subscriber.OnNextOrError(notification);
+            return Subscriber.OnNextOrError(notification, cancellationToken);
         }
 
         /// <summary>

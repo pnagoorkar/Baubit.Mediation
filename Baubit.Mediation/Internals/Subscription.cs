@@ -1,7 +1,4 @@
-﻿using Baubit.Caching;
-using Baubit.Identity;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation.Internals
@@ -95,7 +92,7 @@ namespace Baubit.Mediation.Internals
 
         }
 
-        public abstract bool Handle(T notification);
+        public abstract bool Handle(T notification, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

@@ -1,12 +1,5 @@
 ﻿using Baubit.Caching;
-using Baubit.Caching.InMemory;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
-using Xunit;
 
 namespace Baubit.Mediation.Test.Mediator
 {
@@ -68,7 +61,7 @@ namespace Baubit.Mediation.Test.Mediator
             public bool IsCompleted { get; private set; }
             public Exception? LastError { get; private set; }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 LastValue = next;
                 return true;
@@ -98,7 +91,7 @@ namespace Baubit.Mediation.Test.Mediator
                 _messages = messages;
             }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 _messages.Add(next);
                 return true;
@@ -120,7 +113,7 @@ namespace Baubit.Mediation.Test.Mediator
                 _countdown = countdown;
             }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 _messages.Add(next);
                 _countdown.Signal();
@@ -136,7 +129,7 @@ namespace Baubit.Mediation.Test.Mediator
         {
             public Exception? LastError { get; private set; }
 
-            public bool OnNext(string next)
+            public bool OnNext(string next, CancellationToken cancellationToken = default)
             {
                 throw new InvalidOperationException("Test error");
             }
