@@ -78,7 +78,8 @@ Console.WriteLine(response.Name); // "User 1"
   - **Unbuffered mode (`enableBuffering: false`)**: Messages delivered directly to handlers for low-latency processing
 - **Cooperative cancellation support**
   - `CancellationToken` passed through all publish and subscribe operations
-  - Subscribers and handlers receive cancellation tokens for graceful shutdown
+  - Subscribers and handlers receive cancellation tokens from their subscription for graceful shutdown
+  - Handlers (`IRequestHandler`, `IAsyncRequestHandler`) and subscribers (`ISubscriber`) receive subscription's cancellation token
   - Early return from `Publish` when cancellation is requested
 - Handler registration with cancellation token lifecycle
 - Thread-safe concurrent access
@@ -106,9 +107,9 @@ Console.WriteLine(response.Name); // "User 1"
 
 ### Handler Interfaces
 
-- `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest)` method
-- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest)` method
-- `ISubscriber<T>` - Notification subscriber with `OnNext(T, CancellationToken)` method
+- `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
+- `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
+- `ISubscriber<T>` - Notification subscriber with `OnNext(T, CancellationToken)` method. Receives subscription's cancellation token.
 
 ## Usage Examples
 
@@ -253,6 +254,37 @@ public class OrderSubscriber : ISubscriber<OrderCreated>
     public bool OnCompleted() => true;
     public void Dispose() { }
 }
+```
+
+#### Handlers with Cancellation
+
+Request handlers also receive the subscription's cancellation token:
+
+```csharp
+public class GetUserHandler : IAsyncRequestHandler<GetUserRequest, GetUserResponse>
+{
+    public async Task<GetUserResponse> HandleAsync(GetUserRequest request, CancellationToken cancellationToken = default)
+    {
+        // The cancellation token comes from the subscription, not the Publish call
+        // This allows the handler to gracefully shut down when subscription is cancelled
+        if (cancellationToken.IsCancellationRequested)
+            return new GetUserResponse { Name = "Cancelled" };
+        
+        var user = await database.GetUserAsync(request.UserId, cancellationToken);
+        return new GetUserResponse { Name = user.Name };
+    }
+}
+
+// Register handler with cancellation token
+using var cts = new CancellationTokenSource();
+var subscribeTask = mediator.SubscribeAsync<GetUserRequest, GetUserResponse>(
+    new GetUserHandler(), 
+    enableBuffering: false, 
+    cts.Token  // Handler will receive this token
+);
+
+// When you cancel, handler gets notified
+cts.Cancel();
 ```
 
 ### Request/Response Mediation
