@@ -27,26 +27,19 @@ public class BaubitNotification
     public string Message { get; set; } = string.Empty;
 }
 
-public class BaubitSyncHandler : IRequestHandler<BaubitRequest, BaubitResponse>
+public class BaubitAsyncHandler : IAsyncRequestHandler<BaubitRequest, BaubitResponse>
 {
-    public BaubitResponse Handle(BaubitRequest request)
+    public Task<BaubitResponse> HandleAsync(BaubitRequest request, CancellationToken cancellationToken = default)
     {
-        return new BaubitResponse { Result = request.Value * 2 };
+        return Task.FromResult(new BaubitResponse { Result = request.Value * 2 });
     }
-
-    public Task<BaubitResponse> HandleSyncAsync(BaubitRequest request, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(Handle(request));
-    }
-
-    public void Dispose() { }
 }
 
 public class BaubitNotificationSubscriber : ISubscriber<BaubitNotification>
 {
     private int _count = 0;
 
-    public bool OnNext(BaubitNotification next)
+    public bool OnNext(BaubitNotification next, CancellationToken cancellationToken = default)
     {
         System.Threading.Interlocked.Increment(ref _count);
         return true;
