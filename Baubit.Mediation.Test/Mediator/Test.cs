@@ -719,7 +719,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Act - Start subscription with null handler (should handle gracefully)
-            Func<string, CancellationToken, Task<bool>> nullHandler = null;
+            Func<string, CancellationToken, Task<bool>> nullHandler = null!;
             var subscription = mediator.SubscribeAsync<string>(
                 nullHandler,
                 true,
@@ -1614,7 +1614,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cts = new CancellationTokenSource();
 
             // Start subscription with null handler
-            Func<string, CancellationToken, Task<bool>> nullHandler = null;
+            Func<string, CancellationToken, Task<bool>> nullHandler = null!;
             var subscription = mediator.SubscribeAsync<string>(
                 nullHandler,
                 enableBuffering: false,
@@ -1707,7 +1707,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act
             var result = await mediator.SubscribeAsync<TestRequest, TestResponse>(
-                (IRequestHandler<TestRequest, TestResponse>)null, 
+                (IRequestHandler<TestRequest, TestResponse>)null!, 
                 true, 
                 null,
                 cts.Token);
@@ -1726,7 +1726,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act
             var result = await mediator.SubscribeAsync<TestRequest, TestResponse>(
-                (IAsyncRequestHandler<TestRequest, TestResponse>)null, 
+                (IAsyncRequestHandler<TestRequest, TestResponse>)null!, 
                 true, 
                 cts.Token);
 
@@ -1744,7 +1744,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act
             var result = await mediator.SubscribeAsync<string>(
-                (ISubscriber<string>)null, 
+                (ISubscriber<string>)null!, 
                 true, 
                 cts.Token);
 
