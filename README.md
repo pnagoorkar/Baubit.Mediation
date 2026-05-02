@@ -117,7 +117,7 @@ Console.WriteLine(response.Name); // "User 1"
 | Type | Description |
 |------|-------------|
 | `IPipeline<T>` | Contract for a middleware pipeline that processes items of type `T`. Exposes `RunAsync(T, CancellationToken)`. |
-| `IPipeline<T>.Segment` | Delegate for a single middleware unit. Receives the item, the next segment in the chain, and a cancellation token. |
+| `IPipeline<T>.Segment` | Delegate for a single middleware unit. Receives the item, a `Next` continuation for the remainder of the chain, and a cancellation token. |
 | `PipelineBuilder<T>` | Fluent builder for composing `Segment` delegates into an `IPipeline<T>`. |
 | `PipelineBuilder<T>.Use(segment)` | Registers a segment. Duplicate delegate references are ignored. |
 | `PipelineBuilderExtensions.Use(segment)` | Extension for result-wrapped builders — chains `Use` in a fluent, railway-oriented style. |
