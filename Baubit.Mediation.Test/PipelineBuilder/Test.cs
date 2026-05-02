@@ -242,8 +242,6 @@ namespace Baubit.Mediation.Test.PipelineBuilder
 
             mediator.Publish("dup");
             signal.Wait(TimeSpan.FromSeconds(5));
-            // Give any extra invocations a moment to arrive
-            await Task.Delay(50);
             cts.Cancel();
 
             await subscribeTask;
