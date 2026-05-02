@@ -61,6 +61,8 @@ namespace Baubit.Mediation
         /// <returns>A task that completes when the subscription ends.</returns>
         Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering, string name, CancellationToken cancellationToken = default);
 
+        public Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering = true, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Registers a synchronous request handler for a specific request/response pair.
         /// The handler will process requests from the cache until the cancellation token is triggered.
