@@ -20,27 +20,32 @@ namespace Baubit.Mediation
         private bool disposedValue;
         private List<IPipeline<T>.Segment> segments;
         private ILogger<Pipeline<T>> logger;
+        private IPipeline<T>.Segment firstSegment;
 
-        private static IPipeline<T>.Segment terminalSegment = (_, _, _) => Task.FromResult(true);
+        private static IPipeline<T>.Segment lastSegment = (_, _, _) => Task.FromResult(true);
 
         internal Pipeline(IEnumerable<IPipeline<T>.Segment> segments,
-                        ILogger<Pipeline<T>> logger)
+                          ILogger<Pipeline<T>> logger)
         {
             this.segments = segments.ToList();
             this.logger = logger;
+            firstSegment = LinkSegments(this.segments);
         }
 
-        public Task<bool> RunAsync(T input, CancellationToken cancellationToken = default)
+        private static IPipeline<T>.Segment LinkSegments(List<IPipeline<T>.Segment> segments)
         {
-            var next = terminalSegment;
+            var next = lastSegment;
 
             for (var i = segments.Count - 1; i >= 0; i--)
             {
                 var currentSegment = segments[i];
                 next = (evt, n, ct) => currentSegment(evt, next, ct);
             }
-            return next(input, null, cancellationToken);
+
+            return next;
         }
+
+        public Task<bool> RunAsync(T input, CancellationToken cancellationToken = default) => firstSegment(input, null, cancellationToken);
 
         private void Dispose(bool disposing)
         {
@@ -50,6 +55,7 @@ namespace Baubit.Mediation
                 {
                     segments?.Clear();
                     segments = null;
+                    firstSegment = null;
                 }
 
                 // TODO: free unmanaged resources (unmanaged objects) and override finalizer
