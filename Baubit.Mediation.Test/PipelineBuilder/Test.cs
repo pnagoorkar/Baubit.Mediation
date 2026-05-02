@@ -83,7 +83,7 @@ namespace Baubit.Mediation.Test.PipelineBuilder
             IPipeline<string>.Segment segment = async (item, next, ct) =>
             {
                 count++;
-                return await next(item, null, ct);
+                return await next(item, ct);
             };
 
             var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;

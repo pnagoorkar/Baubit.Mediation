@@ -297,7 +297,7 @@ var subscribeTask = mediator.SubscribeAsync<OrderCreated>(
         pb.Use(async (order, next, ct) =>
         {
             Console.WriteLine($"[LOG] Received order {order.OrderId}");
-            return await next(order, null, ct); // call next to continue the chain
+            return await next(order, ct); // call next to continue the chain
         });
 
         // Segment 2 — validation / filtering
@@ -308,14 +308,14 @@ var subscribeTask = mediator.SubscribeAsync<OrderCreated>(
                 Console.WriteLine($"[SKIP] Order {order.OrderId} has non-positive amount — dropping");
                 return false; // short-circuit: segment 3 will not run
             }
-            return await next(order, null, ct);
+            return await next(order, ct);
         });
 
         // Segment 3 — actual processing
         pb.Use(async (order, next, ct) =>
         {
             await ProcessOrderAsync(order, ct);
-            return await next(order, null, ct);
+            return await next(order, ct);
         });
     },
     enableBuffering: true,

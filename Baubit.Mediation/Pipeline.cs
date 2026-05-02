@@ -17,19 +17,34 @@ namespace Baubit.Mediation
     public interface IPipeline<T> : IDisposable
     {
         /// <summary>
+        /// Represents the continuation function passed to each <see cref="Segment"/>.
+        /// Invoking it transfers control to the next segment in the chain (or to the implicit
+        /// terminal segment if there are no further segments).
+        /// </summary>
+        /// <param name="item">The item to pass to the next segment.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>
+        /// A task that completes with <c>true</c> when the remainder of the chain succeeds;
+        /// <c>false</c> if any downstream segment short-circuits with <c>false</c>.
+        /// </returns>
+        public delegate Task<bool> Next(T item, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Represents a single middleware unit in the pipeline.
-        /// Each segment receives the current item, a reference to the next segment in the chain,
-        /// and a cancellation token. It may call <paramref name="next"/> to continue the chain,
-        /// or return without calling it to short-circuit.
+        /// Each segment receives the current item, a <see cref="Next"/> continuation for the
+        /// remainder of the chain, and a cancellation token.
+        /// Call <paramref name="next"/> to continue the chain, or return without calling it to short-circuit.
         /// </summary>
         /// <param name="item">The item being processed.</param>
-        /// <param name="next">The next segment in the chain. <c>null</c> when passed in from the terminal call.</param>
+        /// <param name="next">
+        /// The continuation that invokes the next segment. Call as <c>await next(item, ct)</c>.
+        /// </param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>
         /// A task that completes with <c>true</c> if processing succeeded; <c>false</c> if it should
         /// be considered a failure.
         /// </returns>
-        public delegate Task<bool> Segment(T item, Segment next, CancellationToken cancellationToken = default);
+        public delegate Task<bool> Segment(T item, Next next, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Runs the pipeline against <paramref name="input"/>, invoking each segment in order.
@@ -53,17 +68,17 @@ namespace Baubit.Mediation
         private bool disposedValue;
         private List<IPipeline<T>.Segment> segments;
         private ILogger<Pipeline<T>> logger;
-        private IPipeline<T>.Segment firstSegment;
+        private IPipeline<T>.Next firstNext;
 
         /// <summary>
-        /// The terminal segment appended automatically at the end of every chain.
+        /// The terminal <see cref="IPipeline{T}.Next"/> appended automatically at the end of every chain.
         /// Always returns <c>true</c> and acts as the no-op tail of the middleware chain.
         /// </summary>
-        private static IPipeline<T>.Segment lastSegment = (_, _, _) => Task.FromResult(true);
+        private static readonly IPipeline<T>.Next lastNext = (_, _) => Task.FromResult(true);
 
         /// <summary>
         /// Initializes a new <see cref="Pipeline{T}"/> by linking the provided segments and
-        /// caching the resulting chain as <see cref="firstSegment"/>.
+        /// caching the resulting chain entry point as <see cref="firstNext"/>.
         /// </summary>
         /// <param name="segments">The ordered list of middleware segments to link.</param>
         /// <param name="logger">Logger for diagnostic output.</param>
@@ -72,35 +87,36 @@ namespace Baubit.Mediation
         {
             this.segments = segments.ToList();
             this.logger = logger;
-            firstSegment = LinkSegments(this.segments);
+            firstNext = LinkSegments(this.segments);
         }
 
         /// <summary>
         /// Builds the invocation chain by walking the segment list in reverse and composing
-        /// each segment with the accumulated tail. A local <c>capturedNext</c> variable is used
-        /// inside each closure to avoid the classic C# loop-variable capture bug.
+        /// each segment with the accumulated <see cref="IPipeline{T}.Next"/> tail.
+        /// A local <c>capturedNext</c> variable is used inside each closure to avoid the classic
+        /// C# loop-variable capture bug.
         /// </summary>
         /// <param name="segments">The ordered list of segments to chain.</param>
         /// <returns>
-        /// The first segment of the composed chain. If <paramref name="segments"/> is empty,
-        /// <see cref="lastSegment"/> is returned directly.
+        /// The entry-point <see cref="IPipeline{T}.Next"/> of the composed chain.
+        /// If <paramref name="segments"/> is empty, <see cref="lastNext"/> is returned directly.
         /// </returns>
-        private static IPipeline<T>.Segment LinkSegments(List<IPipeline<T>.Segment> segments)
+        private static IPipeline<T>.Next LinkSegments(List<IPipeline<T>.Segment> segments)
         {
-            var next = lastSegment;
+            var next = lastNext;
 
             for (var i = segments.Count - 1; i >= 0; i--)
             {
                 var currentSegment = segments[i];
                 var capturedNext = next;
-                next = (evt, n, ct) => currentSegment(evt, capturedNext, ct);
+                next = (item, ct) => currentSegment(item, capturedNext, ct);
             }
 
             return next;
         }
 
         /// <inheritdoc/>
-        public Task<bool> RunAsync(T input, CancellationToken cancellationToken = default) => firstSegment(input, null, cancellationToken);
+        public Task<bool> RunAsync(T input, CancellationToken cancellationToken = default) => firstNext(input, cancellationToken);
 
         /// <summary>
         /// Releases managed resources used by this pipeline.
@@ -117,7 +133,7 @@ namespace Baubit.Mediation
                 {
                     segments?.Clear();
                     segments = null;
-                    firstSegment = null;
+                    firstNext = null;
                 }
 
                 disposedValue = true;

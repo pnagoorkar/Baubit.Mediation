@@ -60,7 +60,7 @@ namespace Baubit.Mediation.Test.Pipeline
                 pb.Use(async (item, next, ct) =>
                 {
                     received.Add(item);
-                    return await next(item, null, ct);
+                    return await next(item, ct);
                 });
             });
 
@@ -104,9 +104,9 @@ namespace Baubit.Mediation.Test.Pipeline
 
             using var pipeline = BuildPipeline<string>(pb =>
             {
-                pb.Use(async (item, next, ct) => { order.Add(1); return await next(item, null, ct); });
-                pb.Use(async (item, next, ct) => { order.Add(2); return await next(item, null, ct); });
-                pb.Use(async (item, next, ct) => { order.Add(3); return await next(item, null, ct); });
+                pb.Use(async (item, next, ct) => { order.Add(1); return await next(item, ct); });
+                pb.Use(async (item, next, ct) => { order.Add(2); return await next(item, ct); });
+                pb.Use(async (item, next, ct) => { order.Add(3); return await next(item, ct); });
             });
 
             var result = await pipeline.RunAsync("item");
@@ -126,9 +126,9 @@ namespace Baubit.Mediation.Test.Pipeline
 
             using var pipeline = BuildPipeline<string>(pb =>
             {
-                pb.Use(async (item, next, ct) => { invoked.Add(1); return await next(item, null, ct); });
+                pb.Use(async (item, next, ct) => { invoked.Add(1); return await next(item, ct); });
                 pb.Use((item, next, ct) => { invoked.Add(2); return Task.FromResult(false); });
-                pb.Use(async (item, next, ct) => { invoked.Add(3); return await next(item, null, ct); });
+                pb.Use(async (item, next, ct) => { invoked.Add(3); return await next(item, ct); });
             });
 
             var result = await pipeline.RunAsync("item");
