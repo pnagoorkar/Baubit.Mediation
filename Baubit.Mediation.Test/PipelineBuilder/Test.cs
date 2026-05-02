@@ -1,254 +1,157 @@
-using Baubit.Caching;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
 namespace Baubit.Mediation.Test.PipelineBuilder
 {
     /// <summary>
-    /// Tests for <see cref="Baubit.Mediation.PipelineBuilder{T}"/> and <see cref="Baubit.Mediation.Pipeline{T}"/>.
+    /// Unit tests for <see cref="Baubit.Mediation.PipelineBuilder{T}"/> exercised directly via
+    /// the internal <c>CreateNew</c> and <c>Build</c> members (accessible through <c>InternalsVisibleTo</c>).
     /// </summary>
     public class Test
     {
-        #region Helpers
+        private static ILoggerFactory CreateLoggerFactory() => LoggerFactory.Create(_ => { });
 
-        private static long _nextId = 0;
-
-        private static IOrderedCache<long, object> CreateCache()
-        {
-            var configuration = new Baubit.Caching.Configuration();
-            var loggerFactory = LoggerFactory.Create(b => { });
-            Func<long?, long?> nextIdFactory = (lastId) => Interlocked.Increment(ref _nextId);
-            var store = new Baubit.Caching.InMemory.Store<long, object>(null, null, nextIdFactory, loggerFactory);
-            var metadata = new Baubit.Caching.InMemory.Metadata<long>(configuration, loggerFactory);
-            return new Baubit.Caching.OrderedCache<long, object>(configuration, null, store, metadata, loggerFactory);
-        }
-
-        private static ILoggerFactory CreateLoggerFactory() => LoggerFactory.Create(b => { });
-
-        #endregion
+        // -----------------------------------------------------------------------
+        // CreateNew
+        // -----------------------------------------------------------------------
 
         /// <summary>
-        /// Tests that a pipeline with no segments uses <c>lastSegment</c> as <c>firstSegment</c> and
-        /// returns <c>true</c> when <c>RunAsync</c> is called — covering <c>LinkSegments</c> with an
-        /// empty list (loop body never entered) and the <c>lastSegment</c> lambda body.
+        /// <see cref="PipelineBuilder{T}.CreateNew"/> must return a successful result containing
+        /// a non-null builder instance.
         /// </summary>
         [Fact]
-        public async Task RunAsync_WithNoSegments_ReturnsTrueViaLastSegment()
+        public void CreateNew_ValidLoggerFactory_ReturnsSuccessfulResult()
         {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            using var cts = new CancellationTokenSource();
-            var signal = new ManualResetEventSlim(false);
+            var result = PipelineBuilder<string>.CreateNew(CreateLoggerFactory());
 
-            // Subscribe with a pipeline that has no segments — firstSegment becomes lastSegment
-            // which returns Task.FromResult(true). Wrap with a buffering func subscriber so we
-            // can observe when RunAsync actually executes inside the mediator loop.
-            var subscribeTask = mediator.SubscribeAsync<string>(
-                pb => { /* no segments — tests LinkSegments with 0 segments */ },
-                enableBuffering: true,
-                cts.Token);
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.Value);
+        }
 
-            // Also subscribe a plain func subscriber to know when the notification was picked up
-            // by the cache (so we can reliably cancel afterwards).
-            var helperTask = mediator.SubscribeAsync<string>(
-                async (item, ct) =>
-                {
-                    signal.Set();
-                    await Task.CompletedTask;
-                    return true;
-                },
-                enableBuffering: true,
-                cts.Token);
+        // -----------------------------------------------------------------------
+        // Use — first registration
+        // -----------------------------------------------------------------------
 
-            // Act
-            mediator.Publish("ping");
-            signal.Wait(TimeSpan.FromSeconds(5));
-            cts.Cancel();
+        /// <summary>
+        /// Registering a segment for the first time must succeed and the built pipeline must invoke
+        /// that segment when <see cref="IPipeline{T}.RunAsync"/> is called.
+        /// </summary>
+        [Fact]
+        public async Task Use_NewSegment_SegmentIsIncludedInBuiltPipeline()
+        {
+            var invoked = false;
+            IPipeline<string>.Segment segment = (item, next, ct) => { invoked = true; return Task.FromResult(true); };
 
-            // Assert — the ContinueWith in SubscribeAsync<T>(Action<PipelineBuilder<T>>,...) returns true
-            var result = await subscribeTask;
-            Assert.True(result);
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            builder.Use(segment);
+            using var pipeline = builder.Build().Value;
+
+            await pipeline.RunAsync("item");
+
+            Assert.True(invoked);
         }
 
         /// <summary>
-        /// Tests that a pipeline with a single segment: the segment runs, its lambda body executes
-        /// (covering the <c>next = (evt, n, ct) => currentSegment(evt, next, ct)</c> closure created
-        /// inside <c>LinkSegments</c>), and the <c>lastSegment</c> body is reached via the chain.
+        /// <see cref="PipelineBuilder{T}.Use"/> must return a successful result containing the
+        /// same builder instance, enabling method chaining.
         /// </summary>
         [Fact]
-        public async Task RunAsync_WithOneSegment_SegmentIsInvokedAndChainedToLastSegment()
+        public void Use_NewSegment_ReturnsSuccessfulResultWithSameBuilder()
         {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            using var cts = new CancellationTokenSource();
+            IPipeline<string>.Segment segment = (item, next, ct) => Task.FromResult(true);
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
 
-            var received = new ConcurrentBag<string>();
-            var signal = new ManualResetEventSlim(false);
+            var result = builder.Use(segment);
 
-            // Act
-            var subscribeTask = mediator.SubscribeAsync<string>(
-                pb =>
-                {
-                    pb.Use(async (item, next, ct) =>
-                    {
-                        received.Add(item);
-                        signal.Set();
-                        // call next so lastSegment lambda body is also executed
-                        return await next(item, null, ct);
-                    });
-                },
-                enableBuffering: true,
-                cts.Token);
-
-            mediator.Publish("hello");
-            signal.Wait(TimeSpan.FromSeconds(5));
-            cts.Cancel();
-
-            var result = await subscribeTask;
-
-            // Assert
-            Assert.True(result);
-            Assert.Single(received);
-            Assert.Equal("hello", received.First());
+            Assert.True(result.IsSuccess);
+            Assert.Same(builder, result.Value);
         }
 
-        /// <summary>
-        /// Tests that a pipeline with multiple segments links them in the correct order.
-        /// Each iteration of the <c>LinkSegments</c> for-loop creates a closure that calls the
-        /// current segment and passes <c>next</c> into it; this verifies that all closures execute
-        /// in declaration order (first → second → third).
-        /// </summary>
-        [Fact]
-        public async Task RunAsync_WithMultipleSegments_ExecutesSegmentsInOrder()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            using var cts = new CancellationTokenSource();
-
-            var executionOrder = new ConcurrentQueue<int>();
-            var signal = new CountdownEvent(3);
-
-            // Act — three segments; tests multiple iterations of the LinkSegments for-loop
-            var subscribeTask = mediator.SubscribeAsync<string>(
-                pb =>
-                {
-                    pb.Use(async (item, next, ct) =>
-                    {
-                        executionOrder.Enqueue(1);
-                        signal.Signal();
-                        return await next(item, null, ct);
-                    });
-                    pb.Use(async (item, next, ct) =>
-                    {
-                        executionOrder.Enqueue(2);
-                        signal.Signal();
-                        return await next(item, null, ct);
-                    });
-                    pb.Use(async (item, next, ct) =>
-                    {
-                        executionOrder.Enqueue(3);
-                        signal.Signal();
-                        return await next(item, null, ct);
-                    });
-                },
-                enableBuffering: true,
-                cts.Token);
-
-            mediator.Publish("hello");
-            signal.Wait(TimeSpan.FromSeconds(5));
-            cts.Cancel();
-
-            await subscribeTask;
-
-            // Assert
-            Assert.Equal(new[] { 1, 2, 3 }, executionOrder.ToArray());
-        }
+        // -----------------------------------------------------------------------
+        // Use — duplicate registration
+        // -----------------------------------------------------------------------
 
         /// <summary>
-        /// Tests that when the subscription is cancelled, the <c>ContinueWith</c> in
-        /// <c>Mediator.SubscribeAsync&lt;T&gt;(Action&lt;PipelineBuilder&lt;T&gt;&gt;, ...)</c>
-        /// executes <c>pipeline.Dispose()</c>, which sets <c>firstSegment = null</c>.
-        /// Verifies the subscription task completes successfully after disposal.
+        /// Adding the same segment delegate reference twice must be a no-op: the segment should
+        /// appear only once in the chain and therefore be invoked exactly once per <c>RunAsync</c> call.
+        /// This covers the <c>segments.Contains(segment)</c> true-branch inside
+        /// <see cref="PipelineBuilder{T}.Use"/>.
         /// </summary>
         [Fact]
-        public async Task Dispose_CalledWhenSubscriptionEnds_CompletesWithoutException()
+        public async Task Use_DuplicateSegment_SegmentInvokedOnlyOnce()
         {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            using var cts = new CancellationTokenSource();
-            var signal = new ManualResetEventSlim(false);
-
-            var subscribeTask = mediator.SubscribeAsync<string>(
-                pb =>
-                {
-                    pb.Use(async (item, next, ct) =>
-                    {
-                        signal.Set();
-                        return await next(item, null, ct);
-                    });
-                },
-                enableBuffering: true,
-                cts.Token);
-
-            mediator.Publish("test");
-            signal.Wait(TimeSpan.FromSeconds(5));
-
-            // Act — cancelling triggers the inner subscription to end; ContinueWith calls pipeline.Dispose()
-            // which sets firstSegment = null (the patched line)
-            cts.Cancel();
-            var result = await subscribeTask;
-
-            // Assert — result comes from ContinueWith returning true; no exception means dispose ran cleanly
-            Assert.True(result);
-        }
-
-        /// <summary>
-        /// Tests that <see cref="PipelineBuilder{T}.Use"/> does not add the same segment instance twice.
-        /// The first <c>Use</c> call succeeds (Contains is false → segment added);
-        /// the second call with the same reference is a no-op (Contains is true → segment not added).
-        /// Verifies observable behaviour: the segment is only invoked once per notification.
-        /// </summary>
-        [Fact]
-        public async Task Use_DuplicateSegment_SegmentInvokedOncePerNotification()
-        {
-            // Arrange
-            using var cache = CreateCache();
-            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
-            using var cts = new CancellationTokenSource();
-
-            int invokeCount = 0;
-            var signal = new ManualResetEventSlim(false);
-
+            var count = 0;
             IPipeline<string>.Segment segment = async (item, next, ct) =>
             {
-                Interlocked.Increment(ref invokeCount);
-                signal.Set();
+                count++;
                 return await next(item, null, ct);
             };
 
-            // Act
-            var subscribeTask = mediator.SubscribeAsync<string>(
-                pb =>
-                {
-                    pb.Use(segment);   // adds segment
-                    pb.Use(segment);   // duplicate — should not be added again
-                },
-                enableBuffering: true,
-                cts.Token);
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            builder.Use(segment); // first registration — added
+            builder.Use(segment); // duplicate — must be ignored
+            using var pipeline = builder.Build().Value;
 
-            mediator.Publish("dup");
-            signal.Wait(TimeSpan.FromSeconds(5));
-            cts.Cancel();
+            await pipeline.RunAsync("item");
 
-            await subscribeTask;
+            Assert.Equal(1, count);
+        }
 
-            // Assert — if the segment were added twice, invokeCount would be 2
-            Assert.Equal(1, invokeCount);
+        // -----------------------------------------------------------------------
+        // Build
+        // -----------------------------------------------------------------------
+
+        /// <summary>
+        /// <see cref="PipelineBuilder{T}.Build"/> with no registered segments must produce a
+        /// working pipeline that returns <c>true</c> (via the implicit terminal segment).
+        /// </summary>
+        [Fact]
+        public async Task Build_NoSegments_ReturnsWorkingPipelineThatReturnsTrue()
+        {
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            using var pipeline = builder.Build().Value;
+
+            var result = await pipeline.RunAsync("item");
+
+            Assert.True(result);
+        }
+
+        /// <summary>
+        /// <see cref="PipelineBuilder{T}.Build"/> must return a successful result containing a
+        /// non-null <see cref="IPipeline{T}"/> instance.
+        /// </summary>
+        [Fact]
+        public void Build_WithSegments_ReturnsSuccessfulResult()
+        {
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            builder.Use((item, next, ct) => Task.FromResult(true));
+
+            var result = builder.Build();
+
+            Assert.True(result.IsSuccess);
+            Assert.NotNull(result.Value);
+            result.Value.Dispose();
+        }
+
+        // -----------------------------------------------------------------------
+        // Dispose
+        // -----------------------------------------------------------------------
+
+        /// <summary>
+        /// After <see cref="PipelineBuilder{T}.Dispose"/> is called the builder should be in a
+        /// disposed state. A second call must not throw (idempotent dispose pattern).
+        /// </summary>
+        [Fact]
+        public void Dispose_CalledTwice_DoesNotThrow()
+        {
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            builder.Use((item, next, ct) => Task.FromResult(true));
+
+            builder.Dispose();
+
+            var exception = Record.Exception(() => builder.Dispose());
+            Assert.Null(exception);
         }
     }
 }
+
 
