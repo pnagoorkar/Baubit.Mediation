@@ -39,7 +39,8 @@ namespace Baubit.Mediation
             for (var i = segments.Count - 1; i >= 0; i--)
             {
                 var currentSegment = segments[i];
-                next = (evt, n, ct) => currentSegment(evt, next, ct);
+                var capturedNext = next;
+                next = (evt, n, ct) => currentSegment(evt, capturedNext, ct);
             }
 
             return next;
