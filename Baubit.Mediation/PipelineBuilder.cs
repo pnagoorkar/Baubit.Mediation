@@ -55,11 +55,24 @@ namespace Baubit.Mediation
         /// <summary>
         /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong><br/>
         /// Builds the <see cref="IPipeline{T}"/> from the currently registered segments.
+        /// Disposes self after building the pipeline.
         /// </summary>
         /// <returns>A successful <see cref="Result{T}"/> containing the constructed pipeline.</returns>
         public Result<IPipeline<T>> Build()
         {
-            return new Pipeline<T>(segments, loggerFactory.CreateLogger<Pipeline<T>>());
+            try
+            {
+                return FailIfDisposed().Bind(() => Result.Try<IPipeline<T>>(() => new Pipeline<T>(segments, loggerFactory.CreateLogger<Pipeline<T>>())));
+            }
+            finally
+            {
+                Dispose();
+            }
+        }
+
+        private Result FailIfDisposed()
+        {
+            return Result.FailIf(disposedValue, new Error("Builder has been disposed"));
         }
 
         /// <summary>
@@ -126,6 +139,7 @@ namespace Baubit.Mediation
         }
 
         /// <summary>
+        /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong><br/>
         /// Finalises the pipeline by calling <see cref="PipelineBuilder{T}.Build()"/> on the wrapped builder.
         /// Throws if the result is failed.
         /// </summary>
