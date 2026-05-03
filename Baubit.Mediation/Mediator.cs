@@ -123,8 +123,13 @@ namespace Baubit.Mediation
 
         public Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering = true, CancellationToken cancellationToken = default)
         {
+            return SubscribeAsync<T>(pipelineBuildAction, enableBuffering, null, cancellationToken);
+        }
+
+        public Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering, string name, CancellationToken cancellationToken = default)
+        {
             var pipeline = PipelineBuilder<T>.CreateNew(loggerFactory).WithBuildAction(pipelineBuildAction).Build();
-            return SubscribeAsync<T>(pipeline.RunAsync, enableBuffering: enableBuffering, cancellationToken).ContinueWith(_ => { pipeline.Dispose(); return true; });
+            return SubscribeAsync<T>(pipeline.RunAsync, enableBuffering: enableBuffering, name: name, cancellationToken).ContinueWith(_ => { pipeline.Dispose(); return true; });
         }
 
         public Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,

@@ -95,6 +95,7 @@ Console.WriteLine(response.Name); // "User 1"
 | `SubscribeAsync<T>(subscriber, enableBuffering, cancellationToken)` | Subscribe to notifications with `ISubscriber<T>`. Cancellation token ends subscription. |
 | `SubscribeAsync<T>(subscriber, enableBuffering, name, cancellationToken)` | Subscribe to notifications with named cache enumerator. |
 | `SubscribeAsync<T>(pipelineBuildAction, enableBuffering, cancellationToken)` | Subscribe to notifications through a `PipelineBuilder<T>`-configured middleware pipeline. |
+| `SubscribeAsync<T>(pipelineBuildAction, enableBuffering, name, cancellationToken)` | Subscribe to notifications through a `PipelineBuilder<T>`-configured middleware pipeline with a named cache enumerator. |
 | `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, cancellationToken)` | Register request handler with `IRequestHandler<TRequest, TResponse>`. |
 | `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, cancellationToken)` | Register request handler with named cache enumerator. |
 | `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, cancellationToken)` | Register async request handler with `IAsyncRequestHandler<TRequest, TResponse>`. |
@@ -333,6 +334,25 @@ cts.Cancel();
 - Calling `next` passes control to the following segment; the implicit terminal segment at the end of every chain returns `true`.
 - Omitting the `next` call short-circuits the chain and the return value of the current segment is used as the pipeline result.
 - Registering the same delegate reference more than once is a no-op (the second registration is silently ignored).
+- Use the named overload (`name` parameter) when multiple independent pipeline subscriptions for the same notification type each need their own cache enumerator position:
+
+```csharp
+// Two independent pipelines with separate named enumerators
+var sub1 = mediator.SubscribeAsync<OrderCreated>(
+    pb => pb.Use(async (order, next, ct) => { /* audit log */ return await next(order, ct); }),
+    enableBuffering: true,
+    name: "audit-pipeline",
+    cts.Token);
+
+var sub2 = mediator.SubscribeAsync<OrderCreated>(
+    pb => pb.Use(async (order, next, ct) => { /* billing */ return await next(order, ct); }),
+    enableBuffering: true,
+    name: "billing-pipeline",
+    cts.Token);
+
+mediator.Publish(new OrderCreated { OrderId = 1, Amount = 99.99m });
+// Both pipelines receive the notification independently via their own named cache positions
+```
 
 ## Architecture Notes
 

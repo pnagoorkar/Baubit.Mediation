@@ -55,9 +55,13 @@ namespace Baubit.Mediation
         /// <summary>
         /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong><br/>
         /// Builds the <see cref="IPipeline{T}"/> from the currently registered segments.
-        /// Disposes self after building the pipeline.
+        /// Always disposes itself after the attempt, whether or not building succeeded.
+        /// Returns a failed <see cref="Result{T}"/> if the builder has already been disposed.
         /// </summary>
-        /// <returns>A successful <see cref="Result{T}"/> containing the constructed pipeline.</returns>
+        /// <returns>
+        /// A successful <see cref="Result{T}"/> containing the constructed pipeline,
+        /// or a failed <see cref="Result{T}"/> if the builder was already disposed.
+        /// </returns>
         public Result<IPipeline<T>> Build()
         {
             try

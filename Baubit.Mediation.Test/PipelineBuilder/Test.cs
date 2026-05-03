@@ -133,6 +133,46 @@ namespace Baubit.Mediation.Test.PipelineBuilder
         }
 
         // -----------------------------------------------------------------------
+        // Build — disposed-builder guard (FailIfDisposed)
+        // -----------------------------------------------------------------------
+
+        /// <summary>
+        /// Calling <see cref="PipelineBuilder{T}.Build"/> on a builder that has already been
+        /// explicitly disposed must return a failed <see cref="Result{T}"/> rather than throwing.
+        /// This covers the <c>FailIfDisposed()</c> true-branch added in the builder.
+        /// </summary>
+        [Fact]
+        public void Build_OnDisposedBuilder_ReturnsFailedResult()
+        {
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            builder.Dispose();
+
+            var result = builder.Build();
+
+            Assert.True(result.IsFailed);
+        }
+
+        /// <summary>
+        /// <see cref="PipelineBuilder{T}.Build"/> must dispose the builder in its <c>finally</c>
+        /// block, so a second call to <c>Build()</c> on the same instance must return a failed
+        /// result rather than building a second pipeline.
+        /// This covers the auto-dispose path introduced alongside <c>FailIfDisposed()</c>.
+        /// </summary>
+        [Fact]
+        public void Build_CalledTwice_SecondCallReturnsFailedResult()
+        {
+            var builder = PipelineBuilder<string>.CreateNew(CreateLoggerFactory()).Value;
+            builder.Use((item, next, ct) => Task.FromResult(true));
+
+            var firstResult = builder.Build();   // succeeds and disposes the builder
+            var secondResult = builder.Build();  // builder is now disposed → must fail
+
+            Assert.True(firstResult.IsSuccess);
+            firstResult.Value.Dispose();
+            Assert.True(secondResult.IsFailed);
+        }
+
+        // -----------------------------------------------------------------------
         // Dispose
         // -----------------------------------------------------------------------
 
@@ -153,4 +193,3 @@ namespace Baubit.Mediation.Test.PipelineBuilder
         }
     }
 }
-

@@ -61,7 +61,44 @@ namespace Baubit.Mediation
         /// <returns>A task that completes when the subscription ends.</returns>
         Task<bool> SubscribeAsync<T>(ISubscriber<T> subscriber, bool enableBuffering, string name, CancellationToken cancellationToken = default);
 
-        public Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering = true, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Subscribes to notifications of type <typeparamref name="T"/> through a composable middleware pipeline
+        /// built by the provided action. Notifications flow through the pipeline segments in declaration order
+        /// for the lifetime of the subscription.
+        /// </summary>
+        /// <typeparam name="T">The type of notifications to receive.</typeparam>
+        /// <param name="pipelineBuildAction">
+        /// An action that receives a <see cref="PipelineBuilder{T}"/> and registers the desired middleware
+        /// segments via <see cref="PipelineBuilder{T}.Use"/>. The builder is disposed automatically after
+        /// the pipeline is constructed.
+        /// </param>
+        /// <param name="enableBuffering">
+        /// Determines whether the mediator buffers notifications through an ordered cache before delivery
+        /// (<c>true</c>, the default) or delivers them directly to the pipeline (<c>false</c>).
+        /// </param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes when the subscription ends.</returns>
+        Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering = true, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Subscribes to notifications of type <typeparamref name="T"/> through a composable middleware pipeline
+        /// built by the provided action, using a named cache enumerator. Notifications flow through the pipeline
+        /// segments in declaration order for the lifetime of the subscription.
+        /// </summary>
+        /// <typeparam name="T">The type of notifications to receive.</typeparam>
+        /// <param name="pipelineBuildAction">
+        /// An action that receives a <see cref="PipelineBuilder{T}"/> and registers the desired middleware
+        /// segments via <see cref="PipelineBuilder{T}.Use"/>. The builder is disposed automatically after
+        /// the pipeline is constructed.
+        /// </param>
+        /// <param name="enableBuffering">
+        /// Determines whether the mediator buffers notifications through an ordered cache before delivery
+        /// or delivers them directly to the pipeline.
+        /// </param>
+        /// <param name="name">Name for the cache enumerator. Only used when <paramref name="enableBuffering"/> is <c>true</c>.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes when the subscription ends.</returns>
+        Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering, string name, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Registers a synchronous request handler for a specific request/response pair.
