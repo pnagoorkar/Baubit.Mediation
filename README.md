@@ -73,6 +73,9 @@ Console.WriteLine(response.Name); // "User 1"
 - Asynchronous request/response handling with optional buffering
 - Cache-backed async processing pipeline
 - Notification pub/sub with typed subscribers
+- **Built-in middleware pipeline for notification processing**
+  - Compose reusable `Segment` middleware using `PipelineBuilder<T>`
+  - Segments execute in declaration order; any segment may short-circuit the chain
 - **Notification and request delivery with buffering control**
   - **Buffered mode (`enableBuffering: true`)**: Messages pass through an ordered cache before delivery. Useful when handlers are required to process events in the order of occurrence and/or the system requires durability/rewind-replay (look at [Baubit.Caching.LiteDB](https://github.com/pnagoorkar/Baubit.Caching.LiteDB) for persistence)
   - **Unbuffered mode (`enableBuffering: false`)**: Messages delivered directly to handlers for low-latency processing
@@ -91,6 +94,8 @@ Console.WriteLine(response.Name); // "User 1"
 | `PublishAsync<TRequest, TResponse>(request, cancellationToken)` | Publish a request and await response from registered handler. Cancellation token is monitored during processing. |
 | `SubscribeAsync<T>(subscriber, enableBuffering, cancellationToken)` | Subscribe to notifications with `ISubscriber<T>`. Cancellation token ends subscription. |
 | `SubscribeAsync<T>(subscriber, enableBuffering, name, cancellationToken)` | Subscribe to notifications with named cache enumerator. |
+| `SubscribeAsync<T>(pipelineBuildAction, enableBuffering, cancellationToken)` | Subscribe to notifications through a `PipelineBuilder<T>`-configured middleware pipeline. |
+| `SubscribeAsync<T>(pipelineBuildAction, enableBuffering, name, cancellationToken)` | Subscribe to notifications through a `PipelineBuilder<T>`-configured middleware pipeline with a named cache enumerator. |
 | `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, cancellationToken)` | Register request handler with `IRequestHandler<TRequest, TResponse>`. |
 | `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, name, cancellationToken)` | Register request handler with named cache enumerator. |
 | `SubscribeAsync<TRequest, TResponse>(handler, enableBuffering, cancellationToken)` | Register async request handler with `IAsyncRequestHandler<TRequest, TResponse>`. |
@@ -105,6 +110,20 @@ Console.WriteLine(response.Name); // "User 1"
 - `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
 - `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
 - `ISubscriber<T>` - Notification subscriber with `OnNext(T, CancellationToken)` method. Receives subscription's cancellation token.
+
+### Pipeline API
+
+`IPipeline<T>` and `PipelineBuilder<T>` enable composable middleware processing for notifications.
+
+| Type | Description |
+|------|-------------|
+| `IPipeline<T>` | Contract for a middleware pipeline that processes items of type `T`. Exposes `RunAsync(T, CancellationToken)`. |
+| `IPipeline<T>.Segment` | Delegate for a single middleware unit. Receives the item, a `Next` continuation for the remainder of the chain, and a cancellation token. |
+| `PipelineBuilder<T>` | Fluent builder for composing `Segment` delegates into an `IPipeline<T>`. |
+| `PipelineBuilder<T>.Use(segment)` | Registers a segment. Duplicate delegate references are ignored. |
+| `PipelineBuilderExtensions.Use(segment)` | Extension for result-wrapped builders — chains `Use` in a fluent, railway-oriented style. |
+| `PipelineBuilderExtensions.WithBuildAction(action)` | Applies an imperative configuration action to the wrapped builder. |
+| `PipelineBuilderExtensions.Build()` | Finalises the builder and returns the constructed `IPipeline<T>`. |
 
 ## Usage Examples
 
@@ -262,11 +281,81 @@ var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(
 cts.Cancel();
 ```
 
+### Middleware Pipeline for Notifications
+
+`PipelineBuilder<T>` lets you compose reusable middleware segments that are chained together
+and run in declaration order for each incoming notification.  Use it to add cross-cutting
+concerns such as logging, validation, or filtering without modifying your core handler logic.
+
+```csharp
+// Subscribe using a middleware pipeline
+using var cts = new CancellationTokenSource();
+
+var subscribeTask = mediator.SubscribeAsync<OrderCreated>(
+    pb =>
+    {
+        // Segment 1 — logging
+        pb.Use(async (order, next, ct) =>
+        {
+            Console.WriteLine($"[LOG] Received order {order.OrderId}");
+            return await next(order, ct); // call next to continue the chain
+        });
+
+        // Segment 2 — validation / filtering
+        pb.Use(async (order, next, ct) =>
+        {
+            if (order.Amount <= 0)
+            {
+                Console.WriteLine($"[SKIP] Order {order.OrderId} has non-positive amount — dropping");
+                return false; // short-circuit: segment 3 will not run
+            }
+            return await next(order, ct);
+        });
+
+        // Segment 3 — actual processing
+        pb.Use(async (order, next, ct) =>
+        {
+            await ProcessOrderAsync(order, ct);
+            return await next(order, ct);
+        });
+    },
+    enableBuffering: true,
+    cts.Token
+);
+
+mediator.Publish(new OrderCreated { OrderId = 1, Amount = 99.99m });
+mediator.Publish(new OrderCreated { OrderId = 2, Amount = -5m }); // filtered out by segment 2
+
+cts.Cancel();
+```
+
+**Key behaviours:**
+- Segments run in the order they are registered via `Use`.
+- Calling `next` passes control to the following segment; the implicit terminal segment at the end of every chain returns `true`.
+- Omitting the `next` call short-circuits the chain and the return value of the current segment is used as the pipeline result.
+- Registering the same delegate reference more than once is a no-op (the second registration is silently ignored).
+- Use the named overload (`name` parameter) when multiple independent pipeline subscriptions for the same notification type each need their own cache enumerator position:
+
+```csharp
+// Two independent pipelines with separate named enumerators
+var sub1 = mediator.SubscribeAsync<OrderCreated>(
+    pb => pb.Use(async (order, next, ct) => { /* audit log */ return await next(order, ct); }),
+    enableBuffering: true,
+    name: "audit-pipeline",
+    cts.Token);
+
+var sub2 = mediator.SubscribeAsync<OrderCreated>(
+    pb => pb.Use(async (order, next, ct) => { /* billing */ return await next(order, ct); }),
+    enableBuffering: true,
+    name: "billing-pipeline",
+    cts.Token);
+
+mediator.Publish(new OrderCreated { OrderId = 1, Amount = 99.99m });
+// Both pipelines receive the notification independently via their own named cache positions
+```
+
 ## Architecture Notes
 
-**MediatR vs Baubit.Mediation**:
-- **MediatR**: Offers built-in pipeline behaviors optimized for in-memory processing
-- **Baubit.Mediation**: Expects pipelines to be built outside of its knowledge, focusing on cache-backed durability and distributed messaging
 
 **Cache-Backed Async Mediation**:
 

@@ -45,6 +45,8 @@ namespace Baubit.Mediation
         /// </summary>
         private GuidV7Generator idGenerator;
 
+        private ILoggerFactory loggerFactory;
+
         /// <summary>
         /// Creates a new <see cref="Mediator"/> instance.
         /// </summary>
@@ -54,6 +56,7 @@ namespace Baubit.Mediation
                         ILoggerFactory loggerFactory)
         {
             this.cache = cache;
+            this.loggerFactory = loggerFactory;
             this.logger = loggerFactory.CreateLogger<Mediator>();
             this.idGenerator = GuidV7Generator.CreateNew();
         }
@@ -116,6 +119,17 @@ namespace Baubit.Mediation
                 throw new TaskCanceledException("Response not received before enumeration ended");
             }
             else return await requestSubscription.HandleAsync(request, subscription.CancellationToken);
+        }
+
+        public Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering = true, CancellationToken cancellationToken = default)
+        {
+            return SubscribeAsync<T>(pipelineBuildAction, enableBuffering, null, cancellationToken);
+        }
+
+        public Task<bool> SubscribeAsync<T>(Action<PipelineBuilder<T>> pipelineBuildAction, bool enableBuffering, string name, CancellationToken cancellationToken = default)
+        {
+            var pipeline = PipelineBuilder<T>.CreateNew(loggerFactory).WithBuildAction(pipelineBuildAction).Build();
+            return SubscribeAsync<T>(pipeline.RunAsync, enableBuffering: enableBuffering, name: name, cancellationToken).ContinueWith(_ => { pipeline.Dispose(); return true; });
         }
 
         public Task<bool> SubscribeAsync<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> requestHandler,

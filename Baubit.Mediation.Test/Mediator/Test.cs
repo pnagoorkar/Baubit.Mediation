@@ -289,7 +289,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             var whenAllTask = Task.WhenAll(tasks);
             var completedTask = await Task.WhenAny(whenAllTask, Task.Delay(Timeout.Infinite, timeoutCts.Token));
-            
+
             Assert.True(whenAllTask.IsCompleted, "Test timed out waiting for concurrent requests");
             var responses = await whenAllTask;
 
@@ -304,7 +304,7 @@ namespace Baubit.Mediation.Test.Mediator
             }
             // Verify all unique requests were handled
             Assert.Equal(requestCount, responseSet.Count);
-            
+
             // Cleanup
             cts.Cancel();
         }
@@ -1391,7 +1391,7 @@ namespace Baubit.Mediation.Test.Mediator
             // Assert - At least one should have started successfully (exact count depends on timing)
             // The important thing is no exception is thrown
             Assert.True(true); // Test passes if no exception
-            
+
             // Cleanup
             foreach (var cts in ctsList) cts.Dispose();
         }
@@ -1707,8 +1707,8 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act
             var result = await mediator.SubscribeAsync<TestRequest, TestResponse>(
-                (IRequestHandler<TestRequest, TestResponse>)null!, 
-                true, 
+                (IRequestHandler<TestRequest, TestResponse>)null!,
+                true,
                 null,
                 cts.Token);
 
@@ -1726,8 +1726,8 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act
             var result = await mediator.SubscribeAsync<TestRequest, TestResponse>(
-                (IAsyncRequestHandler<TestRequest, TestResponse>)null!, 
-                true, 
+                (IAsyncRequestHandler<TestRequest, TestResponse>)null!,
+                true,
                 cts.Token);
 
             // Assert
@@ -1744,8 +1744,8 @@ namespace Baubit.Mediation.Test.Mediator
 
             // Act
             var result = await mediator.SubscribeAsync<string>(
-                (ISubscriber<string>)null!, 
-                true, 
+                (ISubscriber<string>)null!,
+                true,
                 cts.Token);
 
             // Assert
@@ -1868,6 +1868,713 @@ namespace Baubit.Mediation.Test.Mediator
 
         #endregion
 
+        #region Tests for SubscribeAsync with Action<PipelineBuilder<T>> pipelineBuildAction
+
+        /// <summary>
+        /// A single-segment pipeline must receive and process buffered notifications.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_BufferedDelivery_ReceivesNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: true,
+                cts.Token);
+
+            mediator.Publish("msg-1");
+            mediator.Publish("msg-2");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(2, received.Count);
+            Assert.Contains("msg-1", received);
+            Assert.Contains("msg-2", received);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// A single-segment pipeline must receive unbuffered notifications delivered directly.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_UnbufferedDelivery_ReceivesNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: false,
+                cts.Token);
+
+            await Task.Delay(50); // let subscription start
+
+            // Act
+            mediator.Publish("direct-1");
+            mediator.Publish("direct-2");
+
+            await Task.Delay(50);
+
+            // Assert
+            Assert.Equal(2, received.Count);
+            Assert.Contains("direct-1", received);
+            Assert.Contains("direct-2", received);
+            Assert.Equal(0, cache.Count); // unbuffered — nothing in cache
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// A pipeline with no registered segments still receives and processes notifications via
+        /// the implicit terminal segment (returns <c>true</c>).
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_NoSegments_StillReceivesNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => { /* no segments — only implicit terminal */ },
+                enableBuffering: true,
+                cts.Token);
+
+            // Act
+            mediator.Publish("terminal-only");
+
+            await Task.Delay(100);
+
+            // Assert — notification was processed (no exception, subscription is alive)
+            cts.Cancel();
+            Assert.Equal(1, cache.Count);
+        }
+
+        /// <summary>
+        /// Multiple segments must execute in declaration order for each notification.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_MultipleSegments_ExecuteInDeclarationOrder()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var order = new System.Collections.Concurrent.ConcurrentBag<int>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb =>
+                {
+                    pb.Use(async (item, next, ct) => { order.Add(1); return await next(item, ct); });
+                    pb.Use(async (item, next, ct) => { order.Add(2); return await next(item, ct); });
+                    pb.Use(async (item, next, ct) => { order.Add(3); return await next(item, ct); });
+                },
+                enableBuffering: true,
+                cts.Token);
+
+            // Act
+            mediator.Publish("ordered");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(3, order.Count);
+            Assert.Equal(new[] { 1, 2, 3 }, order.OrderBy(x => x).ToArray());
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// When a middle segment short-circuits (returns <c>false</c> without calling <c>next</c>),
+        /// subsequent segments must not be invoked.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_ShortCircuit_LaterSegmentsNotInvoked()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var invoked = new System.Collections.Concurrent.ConcurrentBag<int>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb =>
+                {
+                    pb.Use(async (item, next, ct) => { invoked.Add(1); return await next(item, ct); });
+                    pb.Use((item, next, ct) => { invoked.Add(2); return Task.FromResult(false); }); // short-circuit
+                    pb.Use(async (item, next, ct) => { invoked.Add(3); return await next(item, ct); });
+                },
+                enableBuffering: true,
+                cts.Token);
+
+            // Act
+            mediator.Publish("short-circuit");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(2, invoked.Count);
+            Assert.Contains(1, invoked);
+            Assert.Contains(2, invoked);
+            Assert.DoesNotContain(3, invoked);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Cancellation must end the pipeline subscription and stop notification delivery.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_Cancellation_EndsSubscription()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: true,
+                cts.Token);
+
+            mediator.Publish("before-cancel");
+            await Task.Delay(100);
+
+            Assert.Single(received);
+
+            // Cancel the subscription
+            cts.Cancel();
+            await Task.Delay(100);
+
+            // Publish after cancellation — subscription is gone so the new item is not processed
+            mediator.Publish("after-cancel");
+            await Task.Delay(100);
+
+            Assert.Single(received); // still only 1
+        }
+
+        /// <summary>
+        /// The cancellation token provided to the subscription must be forwarded to each pipeline
+        /// segment so that segments can observe it.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_CancellationTokenForwardedToSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken capturedToken = CancellationToken.None;
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use((item, next, ct) =>
+                {
+                    capturedToken = ct;
+                    return Task.FromResult(true);
+                }),
+                enableBuffering: false,
+                cts.Token);
+
+            await Task.Delay(50);
+
+            // Act
+            mediator.Publish("token-test");
+
+            await Task.Delay(50);
+
+            // Assert — segment received the subscription's cancellation token
+            Assert.Equal(cts.Token, capturedToken);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Multiple independent pipeline subscriptions for the same notification type must each
+        /// process their own copy of each notification.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_MultipleSubscriptions_AllReceiveNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received1 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var received2 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var sub1 = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { received1.Add(item); return await next(item, ct); }),
+                enableBuffering: true,
+                cts.Token);
+
+            var sub2 = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { received2.Add(item); return await next(item, ct); }),
+                enableBuffering: true,
+                cts.Token);
+
+            // Act
+            mediator.Publish("shared-msg");
+
+            await Task.Delay(100);
+
+            // Assert — both subscriptions received the notification
+            Assert.Single(received1);
+            Assert.Single(received2);
+            Assert.Contains("shared-msg", received1);
+            Assert.Contains("shared-msg", received2);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// A pipeline subscription and an <see cref="ISubscriber{T}"/> subscription for the same
+        /// notification type must both receive each notification.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_CoexistsWithISubscriber_BothReceive()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var pipelineReceived = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var subscriber = new TestSubscriber();
+            using var cts = new CancellationTokenSource();
+
+            var pipelineTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { pipelineReceived.Add(item); return await next(item, ct); }),
+                enableBuffering: false,
+                cts.Token);
+
+            var subscriberTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, cancellationToken: cts.Token);
+            await Task.Delay(50);
+
+            // Act
+            mediator.Publish("coexist-test");
+
+            await Task.Delay(50);
+
+            // Assert
+            Assert.Single(pipelineReceived);
+            Assert.Contains("coexist-test", pipelineReceived);
+            Assert.Equal("coexist-test", subscriber.LastValue);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Many concurrent notifications must all be processed by the pipeline subscription.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_ConcurrentPublish_AllNotificationsProcessed()
+        {
+            // Arrange
+            const int messageCount = 100;
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+            using var allReceived = new CountdownEvent(messageCount);
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    allReceived.Signal();
+                    return await next(item, ct);
+                }),
+                enableBuffering: true,
+                cts.Token);
+
+            // Act — publish concurrently
+            var publishTasks = new List<Task<bool>>(messageCount);
+            for (int i = 0; i < messageCount; i++)
+            {
+                var msg = $"concurrent-{i}";
+                publishTasks.Add(mediator.PublishAsync(msg));
+            }
+            await Task.WhenAll(publishTasks);
+
+            // Wait for all to arrive (with timeout)
+            var completedInTime = allReceived.Wait(TimeSpan.FromSeconds(10));
+
+            // Assert
+            Assert.True(completedInTime, $"Timed out: only {received.Count}/{messageCount} received");
+            Assert.Equal(messageCount, received.Count);
+
+            cts.Cancel();
+        }
+
+        #endregion
+
+        #region Tests for SubscribeAsync with Action<PipelineBuilder<T>> pipelineBuildAction and name parameter
+
+        /// <summary>
+        /// Named overload with <c>null</c> name must behave identically to the unnamed overload —
+        /// buffered notifications are received and processed.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_NullName_BufferedDelivery_ReceivesNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Act — use named overload with null name
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: true,
+                name: null,
+                cts.Token);
+
+            mediator.Publish("named-null-1");
+            mediator.Publish("named-null-2");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(2, received.Count);
+            Assert.Contains("named-null-1", received);
+            Assert.Contains("named-null-2", received);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Named overload with an explicit name must process buffered notifications correctly.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_WithName_BufferedDelivery_ReceivesNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Act — use named overload with a non-null name
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: true,
+                name: "my-pipeline",
+                cts.Token);
+
+            mediator.Publish("named-msg-1");
+            mediator.Publish("named-msg-2");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(2, received.Count);
+            Assert.Contains("named-msg-1", received);
+            Assert.Contains("named-msg-2", received);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Named overload must work correctly for unbuffered (direct) delivery.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_UnbufferedDelivery_ReceivesNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: false,
+                name: "unbuffered-pipeline",
+                cts.Token);
+
+            await Task.Delay(50); // let subscription start
+
+            // Act
+            mediator.Publish("direct-named-1");
+            mediator.Publish("direct-named-2");
+
+            await Task.Delay(50);
+
+            // Assert
+            Assert.Equal(2, received.Count);
+            Assert.Contains("direct-named-1", received);
+            Assert.Contains("direct-named-2", received);
+            Assert.Equal(0, cache.Count); // unbuffered — nothing in cache
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Two independent named pipeline subscriptions with different names must each receive
+        /// every notification independently.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_TwoDifferentNames_BothReceiveNotifications()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received1 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var received2 = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var sub1 = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { received1.Add(item); return await next(item, ct); }),
+                enableBuffering: true,
+                name: "pipeline-A",
+                cts.Token);
+
+            var sub2 = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { received2.Add(item); return await next(item, ct); }),
+                enableBuffering: true,
+                name: "pipeline-B",
+                cts.Token);
+
+            // Act
+            mediator.Publish("shared");
+
+            await Task.Delay(100);
+
+            // Assert — both subscriptions received the notification via their own enumerators
+            Assert.Single(received1);
+            Assert.Single(received2);
+            Assert.Contains("shared", received1);
+            Assert.Contains("shared", received2);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Named overload must propagate multiple segments to the pipeline in declaration order.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_MultipleSegments_ExecuteInDeclarationOrder()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var order = new System.Collections.Concurrent.ConcurrentBag<int>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb =>
+                {
+                    pb.Use(async (item, next, ct) => { order.Add(1); return await next(item, ct); });
+                    pb.Use(async (item, next, ct) => { order.Add(2); return await next(item, ct); });
+                    pb.Use(async (item, next, ct) => { order.Add(3); return await next(item, ct); });
+                },
+                enableBuffering: true,
+                name: "ordered-pipeline",
+                cts.Token);
+
+            // Act
+            mediator.Publish("ordered-named");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(3, order.Count);
+            Assert.Equal(new[] { 1, 2, 3 }, order.OrderBy(x => x).ToArray());
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Named overload must short-circuit correctly when a segment returns <c>false</c>.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_ShortCircuit_LaterSegmentsNotInvoked()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var invoked = new System.Collections.Concurrent.ConcurrentBag<int>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb =>
+                {
+                    pb.Use(async (item, next, ct) => { invoked.Add(1); return await next(item, ct); });
+                    pb.Use((item, next, ct) => { invoked.Add(2); return Task.FromResult(false); }); // short-circuit
+                    pb.Use(async (item, next, ct) => { invoked.Add(3); return await next(item, ct); });
+                },
+                enableBuffering: true,
+                name: "sc-pipeline",
+                cts.Token);
+
+            // Act
+            mediator.Publish("short-circuit-named");
+
+            await Task.Delay(100);
+
+            // Assert
+            Assert.Equal(2, invoked.Count);
+            Assert.Contains(1, invoked);
+            Assert.Contains(2, invoked);
+            Assert.DoesNotContain(3, invoked);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// Cancellation must end the named pipeline subscription and stop notification delivery.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_Cancellation_EndsSubscription()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var received = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) =>
+                {
+                    received.Add(item);
+                    return await next(item, ct);
+                }),
+                enableBuffering: true,
+                name: "cancel-pipeline",
+                cts.Token);
+
+            mediator.Publish("before-cancel");
+            await Task.Delay(100);
+
+            Assert.Single(received);
+
+            // Cancel the subscription
+            cts.Cancel();
+            await Task.Delay(100);
+
+            // Publish after cancellation — subscription is gone so the new item is not processed
+            mediator.Publish("after-cancel");
+            await Task.Delay(100);
+
+            Assert.Single(received); // still only 1
+        }
+
+        /// <summary>
+        /// The cancellation token provided to the named subscription must be forwarded to each
+        /// pipeline segment so segments can observe it.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilderNamed_CancellationTokenForwardedToSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            CancellationToken capturedToken = CancellationToken.None;
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use((item, next, ct) =>
+                {
+                    capturedToken = ct;
+                    return Task.FromResult(true);
+                }),
+                enableBuffering: false,
+                name: "token-pipeline",
+                cts.Token);
+
+            await Task.Delay(50);
+
+            // Act
+            mediator.Publish("token-test-named");
+
+            await Task.Delay(50);
+
+            // Assert — segment received the subscription's cancellation token
+            Assert.Equal(cts.Token, capturedToken);
+
+            cts.Cancel();
+        }
+
+        /// <summary>
+        /// The unnamed overload (no-name parameter) must behave as a shorthand that delegates to
+        /// the named overload with <c>null</c>, producing identical observable results.
+        /// </summary>
+        [Fact]
+        public async Task SubscribeAsync_PipelineBuilder_UnnamedOverload_DelegatesToNamedWithNull()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var unnamedReceived = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var namedNullReceived = new System.Collections.Concurrent.ConcurrentBag<string>();
+            using var cts = new CancellationTokenSource();
+
+            // Subscribe with unnamed overload
+            var unnamedTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { unnamedReceived.Add(item); return await next(item, ct); }),
+                enableBuffering: true,
+                cts.Token);
+
+            // Subscribe with named overload passing null
+            var namedNullTask = mediator.SubscribeAsync<string>(
+                pb => pb.Use(async (item, next, ct) => { namedNullReceived.Add(item); return await next(item, ct); }),
+                enableBuffering: true,
+                name: null,
+                cts.Token);
+
+            // Act
+            mediator.Publish("delegation-test");
+
+            await Task.Delay(100);
+
+            // Assert — both subscriptions behave identically
+            Assert.Single(unnamedReceived);
+            Assert.Single(namedNullReceived);
+            Assert.Contains("delegation-test", unnamedReceived);
+            Assert.Contains("delegation-test", namedNullReceived);
+
+            cts.Cancel();
+        }
+
+        #endregion
+
         #region Subscription Tests - Double Disposal
 
         [Fact]
@@ -1972,7 +2679,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cache = CreateCache();
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             CancellationToken receivedToken = CancellationToken.None;
-            
+
             Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
             {
                 receivedToken = ct;
@@ -1991,7 +2698,7 @@ namespace Baubit.Mediation.Test.Mediator
             // Assert
             Assert.True(result);
             Assert.Equal(cts.Token, receivedToken);
-            
+
             cts.Cancel();
         }
 
@@ -2002,7 +2709,7 @@ namespace Baubit.Mediation.Test.Mediator
             using var cache = CreateCache();
             var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
             CancellationToken receivedToken = CancellationToken.None;
-            
+
             Func<string, CancellationToken, Task<bool>> handler = async (msg, ct) =>
             {
                 receivedToken = ct;
@@ -2021,7 +2728,7 @@ namespace Baubit.Mediation.Test.Mediator
             // Assert
             Assert.True(result);
             Assert.Equal(cts.Token, receivedToken);
-            
+
             cts.Cancel();
         }
 
@@ -2035,7 +2742,7 @@ namespace Baubit.Mediation.Test.Mediator
 
             var subscriber = new TestSubscriberWithTokenCapture((token) => receivedToken = token);
             using var cts = new CancellationTokenSource();
-            
+
             // Pass the cancellation token to SubscribeAsync - this is what the subscriber will receive
             var subscribeTask = mediator.SubscribeAsync(subscriber, enableBuffering: false, cancellationToken: cts.Token);
             await Task.Delay(50); // Let subscription start
@@ -2046,7 +2753,7 @@ namespace Baubit.Mediation.Test.Mediator
             // Assert
             Assert.True(result);
             Assert.Equal(cts.Token, receivedToken);
-            
+
             cts.Cancel();
         }
 
