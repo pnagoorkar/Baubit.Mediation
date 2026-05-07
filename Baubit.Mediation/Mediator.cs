@@ -105,7 +105,7 @@ namespace Baubit.Mediation
 
             if (requestSubscription.EnableBuffering)
             {
-                var enumerator = cache.GetFutureAsyncEnumerator(null, cancellationToken);
+                await using var enumerator = cache.GetFutureAsyncEnumerator(null, cancellationToken);
                 var trackedRequest = new TrackedRequest<TRequest, TResponse>(idGenerator.GetNext(), request);
                 cache.Add(trackedRequest, out var entry);
                 while (await enumerator.MoveNextAsync().ConfigureAwait(false))
