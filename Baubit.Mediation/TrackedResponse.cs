@@ -29,4 +29,21 @@ namespace Baubit.Mediation
             Response = response;
         }
     }
+
+    public class TrackedResponseSegment<TSegment, TResponse> where TSegment : ISegment<TResponse> where TResponse : IResponse
+    {
+        public Guid ForRequest { get; private set; }
+        public TSegment Segment { get; private set; }
+        public bool IsFinal { get; private set; }
+        public TrackedResponseSegment(Guid forRequest, TSegment segment)
+        {
+            ForRequest = forRequest;
+            Segment = segment;
+        }
+        public TrackedResponseSegment(Guid forRequest, bool isFinal)
+        {
+            ForRequest = forRequest;
+            IsFinal = isFinal;
+        }
+    }
 }

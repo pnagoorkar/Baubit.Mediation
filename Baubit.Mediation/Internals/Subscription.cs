@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation.Internals
@@ -126,5 +127,18 @@ namespace Baubit.Mediation.Internals
 
         ///<inheritdoc/>
         public abstract Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    }
+
+    public abstract class Subscription<TRequest, TSegment, TResponse> : Subscription, ISubscription<TRequest, TSegment, TResponse> where TRequest : IStreamRequest<TSegment, TResponse>
+                                                                                  where TSegment : ISegment<TResponse>
+                                                                                  where TResponse : IResponse
+    {
+        protected Subscription(bool enableBuffering,
+                               CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
+        {
+
+        }
+
+        public abstract IAsyncEnumerable<TSegment> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }

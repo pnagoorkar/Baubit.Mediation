@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation
@@ -22,5 +23,12 @@ namespace Baubit.Mediation
         /// <param name="cancellationToken">A token to monitor for cancellation requests during request processing.</param>
         /// <returns>A task that completes with the response.</returns>
         Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    }
+
+    public interface IAsyncStreamRequestHandler<TRequest, TSegment, TResponse> : IRequestHandler where TRequest : IStreamRequest<TSegment, TResponse> 
+                                                                                                 where TSegment : ISegment<TResponse> 
+                                                                                                 where TResponse : IResponse
+    {
+        IAsyncEnumerable<TSegment> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }

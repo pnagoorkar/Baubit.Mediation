@@ -6,4 +6,9 @@
     public interface IResponse
     {
     }
+
+    public interface ISegment<TResponse> where TResponse : IResponse
+    {
+
+    }
 }

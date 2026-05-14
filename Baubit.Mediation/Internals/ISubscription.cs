@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -65,5 +66,12 @@ namespace Baubit.Mediation.Internals
         /// <param name="cancellationToken">Token to signal cancellation of the operation.</param>
         /// <returns>A task that completes with the response from the handler.</returns>
         Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    }
+
+    public interface ISubscription<TRequest, TSegment, TResponse> : ISubscription where TRequest : IStreamRequest<TSegment, TResponse> 
+                                                                                  where TSegment : ISegment<TResponse> 
+                                                                                  where TResponse : IResponse
+    {
+        IAsyncEnumerable<TSegment> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }
