@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation.Internals
@@ -24,7 +25,7 @@ namespace Baubit.Mediation.Internals
         /// When true, messages are queued in the cache before delivery. When false, messages are delivered directly.
         /// </summary>
         public bool EnableBuffering { get; private set; }
-        
+
         /// <summary>
         /// Gets the cancellation token to monitor for cancellation requests.
         /// </summary>
@@ -35,7 +36,7 @@ namespace Baubit.Mediation.Internals
         /// </summary>
         /// <param name="enableBuffering">True to enable buffered message delivery; false for direct delivery.</param>
         /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
-        protected Subscription(bool enableBuffering, 
+        protected Subscription(bool enableBuffering,
                                CancellationToken cancellationToken)
         {
             EnableBuffering = enableBuffering;
@@ -126,5 +127,35 @@ namespace Baubit.Mediation.Internals
 
         ///<inheritdoc/>
         public abstract Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    }
+
+    /// <summary>
+    /// <strong>INTERNAL API - NOT FOR PUBLIC USE</strong>
+    /// <para>This class is part of the internal implementation and may change or be removed in any future version without notice.</para>
+    /// <para>Do not use this class directly in your code. Use <see cref="IMediator"/> instead.</para>
+    /// </summary>
+    /// <remarks>
+    /// Base class for subscriptions that handle stream request/response pairs, producing an async sequence of segments.
+    /// </remarks>
+    /// <typeparam name="TRequest">The stream request type implementing <see cref="IStreamRequest{TSegment,TResponse}"/>.</typeparam>
+    /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+    /// <typeparam name="TResponse">The overall response type implementing <see cref="IResponse"/>.</typeparam>
+    public abstract class Subscription<TRequest, TSegment, TResponse> : Subscription, ISubscription<TRequest, TSegment, TResponse> where TRequest : IStreamRequest<TSegment, TResponse>
+                                                                                  where TSegment : ISegment<TResponse>
+                                                                                  where TResponse : IResponse
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Subscription{TRequest, TSegment, TResponse}"/> class.
+        /// </summary>
+        /// <param name="enableBuffering">True to enable buffered stream handling with tracking; false for direct handling.</param>
+        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+        protected Subscription(bool enableBuffering,
+                               CancellationToken cancellationToken) : base(enableBuffering, cancellationToken)
+        {
+
+        }
+
+        ///<inheritdoc/>
+        public abstract IAsyncEnumerable<TSegment> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }

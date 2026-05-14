@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Baubit.Mediation
@@ -22,5 +23,25 @@ namespace Baubit.Mediation
         /// <param name="cancellationToken">A token to monitor for cancellation requests during request processing.</param>
         /// <returns>A task that completes with the response.</returns>
         Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
+    }
+
+    /// <summary>
+    /// Defines an asynchronous stream request handler that produces a sequence of <typeparamref name="TSegment"/> values
+    /// in response to a single <typeparamref name="TRequest"/>.
+    /// </summary>
+    /// <typeparam name="TRequest">The stream request type to handle.</typeparam>
+    /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+    /// <typeparam name="TResponse">The overall response type.</typeparam>
+    public interface IAsyncStreamRequestHandler<TRequest, TSegment, TResponse> : IRequestHandler where TRequest : IStreamRequest<TSegment, TResponse>
+                                                                                                 where TSegment : ISegment<TResponse>
+                                                                                                 where TResponse : IResponse
+    {
+        /// <summary>
+        /// Handles the stream request and produces a sequence of segments asynchronously.
+        /// </summary>
+        /// <param name="request">The stream request payload.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during stream production.</param>
+        /// <returns>An async enumerable of segments.</returns>
+        IAsyncEnumerable<TSegment> HandleAsync(TRequest request, CancellationToken cancellationToken = default);
     }
 }
