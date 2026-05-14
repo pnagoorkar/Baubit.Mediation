@@ -92,6 +92,7 @@ Console.WriteLine(response.Name); // "User 1"
 | `Publish<T>(notification, cancellationToken)` | Publish a notification synchronously to subscribers. Checks cancellation before delivering to each subscriber. |
 | `PublishAsync<T>(notification, cancellationToken)` | Publish a notification asynchronously (fire and forget). Passes cancellation token to Publish. |
 | `PublishAsync<TRequest, TResponse>(request, cancellationToken)` | Publish a request and await response from registered handler. Cancellation token is monitored during processing. |
+| `PublishAsync<TRequest, TSegment, TResponse>(request, cancellationToken)` | Publish a stream request and iterate segments from the registered handler. Returns `IAsyncEnumerable<TSegment>`. |
 | `SubscribeAsync<T>(subscriber, enableBuffering, cancellationToken)` | Subscribe to notifications with `ISubscriber<T>`. Cancellation token ends subscription. |
 | `SubscribeAsync<T>(subscriber, enableBuffering, name, cancellationToken)` | Subscribe to notifications with named cache enumerator. |
 | `SubscribeAsync<T>(pipelineBuildAction, enableBuffering, cancellationToken)` | Subscribe to notifications through a `PipelineBuilder<T>`-configured middleware pipeline. |
@@ -104,12 +105,22 @@ Console.WriteLine(response.Name); // "User 1"
 | `SubscribeAsync<TNotification>(func, enableBuffering, name, cancellationToken)` | Subscribe to notifications using function handler with named enumerator. |
 | `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, cancellationToken)` | Register async request handler using function. Function receives cancellation token. |
 | `SubscribeAsync<TRequest, TResponse>(func, enableBuffering, name, cancellationToken)` | Register async request handler using function with named enumerator. |
+| `SubscribeAsync<TRequest, TSegment, TResponse>(handler, enableBuffering, cancellationToken)` | Register stream request handler with `IAsyncStreamRequestHandler<TRequest, TSegment, TResponse>`. |
+| `SubscribeAsync<TRequest, TSegment, TResponse>(handler, enableBuffering, name, cancellationToken)` | Register stream request handler with named cache enumerator. |
+| `SubscribeAsync<TRequest, TSegment, TResponse>(func, enableBuffering, cancellationToken)` | Register stream request handler using function `Func<TRequest, CancellationToken, IAsyncEnumerable<TSegment>>`. |
+| `SubscribeAsync<TRequest, TSegment, TResponse>(func, enableBuffering, name, cancellationToken)` | Register stream request handler using function with named enumerator. |
 
 ### Handler Interfaces
 
 - `IRequestHandler<TRequest, TResponse>` - Synchronous handler with `Handle(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
 - `IAsyncRequestHandler<TRequest, TResponse>` - Asynchronous handler with `HandleAsync(TRequest, CancellationToken)` method. Receives subscription's cancellation token.
+- `IAsyncStreamRequestHandler<TRequest, TSegment, TResponse>` - Asynchronous stream handler with `HandleAsync(TRequest, CancellationToken)` returning `IAsyncEnumerable<TSegment>`.
 - `ISubscriber<T>` - Notification subscriber with `OnNext(T, CancellationToken)` method. Receives subscription's cancellation token.
+
+### Stream Request Types
+
+- `IStreamRequest<TSegment, TResponse>` - Marker interface for stream requests that produce sequences of `TSegment` values.
+- `ISegment<TResponse>` - Marker interface for a single segment in a streamed response sequence.
 
 ### Pipeline API
 
@@ -226,6 +237,62 @@ var response = await mediator.PublishAsync<GetUserRequest, GetUserResponse>(
 // All request handling is asynchronous
 // Buffered mode (enableBuffering: true) tracks request/response through cache
 // Unbuffered mode (enableBuffering: false) delivers directly to handler
+```
+
+### Stream Request/Response Mediation
+
+Stream requests produce a sequence of segments (`IAsyncEnumerable<TSegment>`) rather than a single response.
+Use this when a handler needs to push back multiple values over time.
+
+```csharp
+// Types
+public class ChatRequest : IStreamRequest<TextChunk, ChatResponse> { public string Prompt { get; set; } }
+public class TextChunk   : ISegment<ChatResponse>                  { public string Text   { get; set; } }
+public class ChatResponse : IResponse { }
+
+public class SpeechRequest : IStreamRequest<AudioChunk, AudioResponse> { public string Text { get; set; } }
+public class AudioChunk   : ISegment<AudioResponse>                   { public byte[] Pcm  { get; set; } }
+public class AudioResponse : IResponse { }
+
+// Handlers
+public class ChatHandler : IAsyncStreamRequestHandler<ChatRequest, TextChunk, ChatResponse>
+{
+    public async IAsyncEnumerable<TextChunk> HandleAsync(ChatRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var update in chatClient.CompleteChatStreamingAsync(request.Prompt, cancellationToken))
+            foreach (var part in update.ContentUpdate)
+                if (!string.IsNullOrEmpty(part.Text))
+                    yield return new TextChunk { Text = part.Text };
+    }
+}
+
+public class SpeechHandler : IAsyncStreamRequestHandler<SpeechRequest, AudioChunk, AudioResponse>
+{
+    public async IAsyncEnumerable<AudioChunk> HandleAsync(SpeechRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var buffer in ttsClient.SynthesisStreamingAsync(request.Text, cancellationToken))
+            yield return new AudioChunk { Pcm = buffer };
+    }
+}
+
+// Usage — each text chunk is forwarded as a new request to the TTS handler
+using var cts = new CancellationTokenSource();
+_ = mediator.SubscribeAsync<ChatRequest, TextChunk, ChatResponse>(new ChatHandler(), enableBuffering: true, cts.Token);
+_ = mediator.SubscribeAsync<SpeechRequest, AudioChunk, AudioResponse>(new SpeechHandler(), enableBuffering: true, cts.Token);
+
+await foreach (var textChunk in mediator.PublishAsync<ChatRequest, TextChunk, ChatResponse>(
+    new ChatRequest { Prompt = "..." }, cts.Token))
+{
+    await foreach (var audioChunk in mediator.PublishAsync<SpeechRequest, AudioChunk, AudioResponse>(
+        new SpeechRequest { Text = textChunk.Text }, cts.Token))
+    {
+        await audioPlayer.PlayAsync(audioChunk.Pcm, cts.Token);
+    }
+}
+
+cts.Cancel();
 ```
 
 ### Function-Based Subscriptions
@@ -365,6 +432,5 @@ Baubit.Mediation is powered by [Baubit.Caching](https://github.com/pnagoorkar/Ba
 
 
 [MIT](LICENSE)
-
 
 

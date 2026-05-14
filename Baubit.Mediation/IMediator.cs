@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -223,5 +224,100 @@ namespace Baubit.Mediation
                                                        bool enableBuffering = true,
                                                        string name = null,
                                                        CancellationToken cancellationToken = default) where TRequest : IRequest<TResponse> where TResponse : IResponse;
+
+        /// <summary>
+        /// Publishes a stream request asynchronously and returns an async enumerable of response segments from the registered handler.
+        /// </summary>
+        /// <typeparam name="TRequest">The stream request type.</typeparam>
+        /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+        /// <typeparam name="TResponse">The overall response type.</typeparam>
+        /// <param name="request">The stream request to publish.</param>
+        /// <param name="cancellationToken">A token to cancel the operation.</param>
+        /// <returns>An async enumerable of segments from the handler.</returns>
+        /// <exception cref="System.InvalidOperationException">Thrown when no handler is registered for the stream request type.</exception>
+        IAsyncEnumerable<TSegment> PublishAsync<TRequest, TSegment, TResponse>(TRequest request, CancellationToken cancellationToken = default)
+            where TRequest : IStreamRequest<TSegment, TResponse>
+            where TSegment : ISegment<TResponse>
+            where TResponse : IResponse;
+
+        /// <summary>
+        /// Registers an async stream request handler for a specific stream request type.
+        /// The handler will process requests from the cache until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific stream request type at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The stream request type to handle.</typeparam>
+        /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+        /// <typeparam name="TResponse">The overall response type.</typeparam>
+        /// <param name="asyncStreamReqHandler">The handler to register.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.<br/>true by default.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes when the subscription ends with <c>true</c>, or <c>false</c> if a handler for this type is already registered.</returns>
+        Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(IAsyncStreamRequestHandler<TRequest, TSegment, TResponse> asyncStreamReqHandler,
+                                                                  bool enableBuffering = true,
+                                                                  CancellationToken cancellationToken = default)
+            where TRequest : IStreamRequest<TSegment, TResponse>
+            where TSegment : ISegment<TResponse>
+            where TResponse : IResponse;
+
+        /// <summary>
+        /// Registers an async stream request handler for a specific stream request type with a named cache enumerator.
+        /// The handler will process requests from the cache until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific stream request type at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The stream request type to handle.</typeparam>
+        /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+        /// <typeparam name="TResponse">The overall response type.</typeparam>
+        /// <param name="asyncStreamReqHandler">The handler to register.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.</param>
+        /// <param name="name">Name for the cache enumerator.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes when the subscription ends with <c>true</c>, or <c>false</c> if a handler for this type is already registered.</returns>
+        Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(IAsyncStreamRequestHandler<TRequest, TSegment, TResponse> asyncStreamReqHandler,
+                                                                  bool enableBuffering,
+                                                                  string name,
+                                                                  CancellationToken cancellationToken = default)
+            where TRequest : IStreamRequest<TSegment, TResponse>
+            where TSegment : ISegment<TResponse>
+            where TResponse : IResponse;
+
+        /// <summary>
+        /// Subscribes to stream requests using a function handler.
+        /// The handler will process tracked stream requests from the cache and produce segments until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific stream request type at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The stream request type to handle.</typeparam>
+        /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+        /// <typeparam name="TResponse">The overall response type.</typeparam>
+        /// <param name="asyncStreamHandler">The function to handle stream requests. Receives the request and a cancellation token, returns an async enumerable of segments.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.<br/>true by default.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes with <c>true</c> when the subscription ends, or <c>false</c> if another handler for this stream request type is already registered.</returns>
+        Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(Func<TRequest, CancellationToken, IAsyncEnumerable<TSegment>> asyncStreamHandler,
+                                                                  bool enableBuffering = true,
+                                                                  CancellationToken cancellationToken = default)
+            where TRequest : IStreamRequest<TSegment, TResponse>
+            where TSegment : ISegment<TResponse>
+            where TResponse : IResponse;
+
+        /// <summary>
+        /// Subscribes to stream requests using a function handler with a named cache enumerator.
+        /// The handler will process tracked stream requests from the cache and produce segments until the cancellation token is triggered.
+        /// Only one handler can be registered for a specific stream request type at a time.
+        /// </summary>
+        /// <typeparam name="TRequest">The stream request type to handle.</typeparam>
+        /// <typeparam name="TSegment">The type of each segment produced.</typeparam>
+        /// <typeparam name="TResponse">The overall response type.</typeparam>
+        /// <param name="asyncStreamHandler">The function to handle stream requests. Receives the request and a cancellation token, returns an async enumerable of segments.</param>
+        /// <param name="enableBuffering">Determines if the mediator buffers requests before delivering.</param>
+        /// <param name="name">Name for the cache enumerator.</param>
+        /// <param name="cancellationToken">A token to cancel the subscription.</param>
+        /// <returns>A task that completes with <c>true</c> when the subscription ends, or <c>false</c> if another handler for this stream request type is already registered.</returns>
+        Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(Func<TRequest, CancellationToken, IAsyncEnumerable<TSegment>> asyncStreamHandler,
+                                                                  bool enableBuffering,
+                                                                  string name,
+                                                                  CancellationToken cancellationToken = default)
+            where TRequest : IStreamRequest<TSegment, TResponse>
+            where TSegment : ISegment<TResponse>
+            where TResponse : IResponse;
     }
 }

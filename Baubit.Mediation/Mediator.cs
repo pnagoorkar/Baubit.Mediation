@@ -149,7 +149,7 @@ namespace Baubit.Mediation
             }
             else
             {
-                await foreach(var segment in requestSubscription.HandleAsync(request, subscription.CancellationToken).ConfigureAwait(false))
+                await foreach (var segment in requestSubscription.HandleAsync(request, subscription.CancellationToken).ConfigureAwait(false))
                 {
                     yield return segment;
                 }
@@ -275,6 +275,11 @@ namespace Baubit.Mediation
             finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
         }
 
+        public Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(IAsyncStreamRequestHandler<TRequest, TSegment, TResponse> asyncStreamReqHandler, bool enableBuffering = true, CancellationToken cancellationToken = default) where TRequest : IStreamRequest<TSegment, TResponse> where TSegment : ISegment<TResponse> where TResponse : IResponse
+        {
+            return SubscribeAsync(asyncStreamReqHandler, enableBuffering, null, cancellationToken);
+        }
+
         public async Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(IAsyncStreamRequestHandler<TRequest, TSegment, TResponse> asyncStreamReqHandler, bool enableBuffering = true, string name = null, CancellationToken cancellationToken = default) where TRequest : IStreamRequest<TSegment, TResponse> where TSegment : ISegment<TResponse> where TResponse : IResponse
         {
             if (asyncStreamReqHandler == null) return false;
@@ -291,7 +296,7 @@ namespace Baubit.Mediation
                     {
                         if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
                         {
-                            await foreach(var segment in asyncStreamReqHandler.HandleAsync(trackedRequest.Request, cancellationToken).ConfigureAwait(false))
+                            await foreach (var segment in asyncStreamReqHandler.HandleAsync(trackedRequest.Request, cancellationToken).ConfigureAwait(false))
                             {
                                 cache.Add(new TrackedResponseSegment<TSegment, TResponse>(trackedRequest.Id, segment), out _);
                             }
@@ -303,7 +308,44 @@ namespace Baubit.Mediation
                 else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
                 return true;
             }
-            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TResponse>), out _); }
+            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TSegment, TResponse>), out _); }
+        }
+
+        /// <inheritdoc/>
+        public Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(Func<TRequest, CancellationToken, IAsyncEnumerable<TSegment>> asyncStreamHandler, bool enableBuffering = true, CancellationToken cancellationToken = default) where TRequest : IStreamRequest<TSegment, TResponse> where TSegment : ISegment<TResponse> where TResponse : IResponse
+        {
+            return SubscribeAsync<TRequest, TSegment, TResponse>(asyncStreamHandler, enableBuffering, null, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> SubscribeAsync<TRequest, TSegment, TResponse>(Func<TRequest, CancellationToken, IAsyncEnumerable<TSegment>> asyncStreamHandler, bool enableBuffering, string name, CancellationToken cancellationToken = default) where TRequest : IStreamRequest<TSegment, TResponse> where TSegment : ISegment<TResponse> where TResponse : IResponse
+        {
+            if (asyncStreamHandler == null) return false;
+            await using var enumerator = enableBuffering ? cache.GetFutureAsyncEnumerator(name, cancellationToken) : null;
+            var subscription = new AsyncStreamFuncSubscription<TRequest, TSegment, TResponse>(asyncStreamHandler, enableBuffering, cancellationToken);
+            var subscriptions = new List<ISubscription> { subscription };
+            var cachedSubscription = activeSubscriptions.GetOrAdd(typeof(ISubscription<TRequest, TSegment, TResponse>), subscriptions);
+            if (!ReferenceEquals(cachedSubscription, subscriptions)) return false; // there is a handler already registered to handle TRequest
+            try
+            {
+                if (enableBuffering)
+                {
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        if (enumerator.Current.Value is TrackedRequest<TRequest, TResponse> trackedRequest)
+                        {
+                            await foreach (var segment in asyncStreamHandler.Invoke(trackedRequest.Request, cancellationToken).ConfigureAwait(false))
+                            {
+                                cache.Add(new TrackedResponseSegment<TSegment, TResponse>(trackedRequest.Id, segment), out _);
+                            }
+                            cache.Add(new TrackedResponseSegment<TSegment, TResponse>(trackedRequest.Id, true), out _); // add a final segment to indicate stream has ended
+                        }
+                    }
+                }
+                else await Task.Delay(Timeout.Infinite, subscription.CancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            finally { activeSubscriptions.TryRemove(typeof(ISubscription<TRequest, TSegment, TResponse>), out _); }
         }
 
         /// <inheritdoc/>
