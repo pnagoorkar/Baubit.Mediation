@@ -146,6 +146,34 @@ namespace Baubit.Mediation.Test.Mediator
 
         #endregion
 
+        #region Stream Test Types
+
+        public class TestStreamRequest : IStreamRequest<TestStreamSegment, TestStreamResponse>
+        {
+            public string Value { get; set; } = string.Empty;
+        }
+
+        public class TestStreamSegment : ISegment<TestStreamResponse>
+        {
+            public string Part { get; set; } = string.Empty;
+        }
+
+        public class TestStreamResponse : IResponse { }
+
+        public class TestStreamHandler : IAsyncStreamRequestHandler<TestStreamRequest, TestStreamSegment, TestStreamResponse>
+        {
+            public async IAsyncEnumerable<TestStreamSegment> HandleAsync(TestStreamRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    await Task.Yield();
+                    yield return new TestStreamSegment { Part = $"{request.Value}-{i}" };
+                }
+            }
+        }
+
+        #endregion
+
         private static long _nextId = 0;
         private static IOrderedCache<long, object> CreateCache()
         {
@@ -2857,6 +2885,376 @@ namespace Baubit.Mediation.Test.Mediator
                 _tokenCapture(cancellationToken);
                 await Task.Delay(1);
                 return new TestResponse { Result = $"AsyncHandled: {request.Value}" };
+            }
+        }
+
+        #endregion
+
+        #region Stream Request Tests
+
+        [Fact]
+        public async Task PublishAsync_Stream_WithoutHandler_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await foreach (var _ in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                    new TestStreamRequest { Value = "test" }))
+                { }
+            });
+        }
+
+        [Fact]
+        public async Task PublishAsync_Stream_InterfaceHandler_Buffered_YieldsSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestStreamHandler();
+            using var cts = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(handler, true, cts.Token);
+            await Task.Delay(50); // allow subscription to initialise
+
+            // Act
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "hello" }))
+            {
+                segments.Add(seg.Part);
+            }
+
+            // Assert
+            Assert.Equal(3, segments.Count);
+            Assert.Equal("hello-0", segments[0]);
+            Assert.Equal("hello-1", segments[1]);
+            Assert.Equal("hello-2", segments[2]);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task PublishAsync_Stream_InterfaceHandler_Unbuffered_YieldsSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestStreamHandler();
+            using var cts = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(handler, false, cts.Token);
+            await Task.Delay(50); // allow subscription to start
+
+            // Act
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "world" }))
+            {
+                segments.Add(seg.Part);
+            }
+
+            // Assert
+            Assert.Equal(3, segments.Count);
+            Assert.Equal(0, cache.Count); // unbuffered — nothing in cache
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_InterfaceHandler_NullHandler_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            var result = await mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (IAsyncStreamRequestHandler<TestStreamRequest, TestStreamSegment, TestStreamResponse>)null!,
+                true,
+                cts.Token);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_InterfaceHandler_DuplicateRegistration_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler1 = new TestStreamHandler();
+            var handler2 = new TestStreamHandler();
+            using var cts1 = new CancellationTokenSource();
+            using var cts2 = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(handler1, true, cts1.Token);
+            await Task.Delay(50); // allow first to register
+
+            // Act
+            var result = await mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(handler2, true, cts2.Token);
+
+            // Assert
+            Assert.False(result);
+
+            cts1.Cancel();
+            cts2.Cancel();
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_InterfaceHandler_CancellationEndsSubscription()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestStreamHandler();
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(handler, true, cts.Token);
+            await Task.Delay(50);
+
+            // Process one request
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "before" }))
+            {
+                segments.Add(seg.Part);
+            }
+            Assert.Equal(3, segments.Count);
+
+            // Cancel
+            cts.Cancel();
+            await Task.Delay(50);
+
+            // After cancellation the handler is unregistered
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await foreach (var _ in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                    new TestStreamRequest { Value = "after" }))
+                { }
+            });
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_InterfaceHandler_WithName_Buffered_YieldsSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            var handler = new TestStreamHandler();
+            using var cts = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(handler, true, "stream-handler", cts.Token);
+            await Task.Delay(50);
+
+            // Act
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "named" }))
+            {
+                segments.Add(seg.Part);
+            }
+
+            // Assert
+            Assert.Equal(3, segments.Count);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task PublishAsync_Stream_FuncHandler_Buffered_YieldsSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (req, ct) => ProduceSegments(req.Value, ct),
+                true,
+                cts.Token);
+            await Task.Delay(50);
+
+            // Act
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "func" }))
+            {
+                segments.Add(seg.Part);
+            }
+
+            // Assert
+            Assert.Equal(3, segments.Count);
+            Assert.Equal("func-0", segments[0]);
+            Assert.Equal("func-1", segments[1]);
+            Assert.Equal("func-2", segments[2]);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task PublishAsync_Stream_FuncHandler_Unbuffered_YieldsSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (req, ct) => ProduceSegments(req.Value, ct),
+                false,
+                cts.Token);
+            await Task.Delay(50);
+
+            // Act
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "unbuf" }))
+            {
+                segments.Add(seg.Part);
+            }
+
+            // Assert
+            Assert.Equal(3, segments.Count);
+            Assert.Equal(0, cache.Count); // unbuffered
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_FuncHandler_NullHandler_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            // Act
+            Func<TestStreamRequest, CancellationToken, IAsyncEnumerable<TestStreamSegment>> nullHandler = null!;
+            var result = await mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                nullHandler,
+                true,
+                cts.Token);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_FuncHandler_DuplicateRegistration_ReturnsFalse()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts1 = new CancellationTokenSource();
+            using var cts2 = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (req, ct) => ProduceSegments(req.Value, ct), true, cts1.Token);
+            await Task.Delay(50);
+
+            // Act
+            var result = await mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (req, ct) => ProduceSegments(req.Value, ct), true, cts2.Token);
+
+            // Assert
+            Assert.False(result);
+
+            cts1.Cancel();
+            cts2.Cancel();
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_FuncHandler_CancellationEndsSubscription()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            var subscribeTask = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (req, ct) => ProduceSegments(req.Value, ct), true, cts.Token);
+            await Task.Delay(50);
+
+            // One request before cancellation
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "before" }))
+            {
+                segments.Add(seg.Part);
+            }
+            Assert.Equal(3, segments.Count);
+
+            // Cancel
+            cts.Cancel();
+            await Task.Delay(50);
+
+            // Handler unregistered after cancellation
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await foreach (var _ in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                    new TestStreamRequest { Value = "after" }))
+                { }
+            });
+        }
+
+        [Fact]
+        public async Task SubscribeAsync_Stream_FuncHandler_WithName_Buffered_YieldsSegments()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+            using var cts = new CancellationTokenSource();
+
+            _ = mediator.SubscribeAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                (req, ct) => ProduceSegments(req.Value, ct),
+                true,
+                "named-func-stream",
+                cts.Token);
+            await Task.Delay(50);
+
+            // Act
+            var segments = new System.Collections.Generic.List<string>();
+            await foreach (var seg in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                new TestStreamRequest { Value = "named" }))
+            {
+                segments.Add(seg.Part);
+            }
+
+            // Assert
+            Assert.Equal(3, segments.Count);
+
+            cts.Cancel();
+        }
+
+        [Fact]
+        public async Task PublishAsync_Stream_NoSubscriptions_Registered_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            using var cache = CreateCache();
+            var mediator = new Baubit.Mediation.Mediator(cache, CreateLoggerFactory());
+
+            // Act & Assert - no handler registered at all
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                await foreach (var _ in mediator.PublishAsync<TestStreamRequest, TestStreamSegment, TestStreamResponse>(
+                    new TestStreamRequest { Value = "x" }))
+                { }
+            });
+        }
+
+        /// <summary>Helper that produces <paramref name="count"/> segments for stream tests.</summary>
+        private static async IAsyncEnumerable<TestStreamSegment> ProduceSegments(string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default, int count = 3)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                await Task.Yield();
+                yield return new TestStreamSegment { Part = $"{prefix}-{i}" };
             }
         }
 
