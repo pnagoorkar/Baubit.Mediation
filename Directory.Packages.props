@@ -14,7 +14,7 @@
   <!-- Define package versions only when parent doesn't exist (standalone builds) -->
   <ItemGroup Condition="'$(ParentPackagesPropsPath)' == ''">
     <!-- Production Dependencies -->
-    <PackageVersion Include="Baubit.Caching" Version="2026.22.1" />
+    <PackageVersion Include="Baubit.Caching" Version="2026.31.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.5" />
     
     <!-- Test Dependencies -->
